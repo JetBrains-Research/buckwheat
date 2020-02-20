@@ -1,0 +1,15 @@
+[submodule "tree-sitter/vendor/tree-sitter-c"]
+	path = tree-sitter/vendor/tree-sitter-c
+	url = https://github.com/tree-sitter/tree-sitter-c
+[submodule "tree-sitter/vendor/tree-sitter-c-sharp"]
+	path = tree-sitter/vendor/tree-sitter-c-sharp
+	url = https://github.com/tree-sitter/tree-sitter-c-sharp
+[submodule "tree-sitter/vendor/tree-sitter-cpp"]
+	path = tree-sitter/vendor/tree-sitter-cpp
+	url = https://github.com/tree-sitter/tree-sitter-cpp
+[submodule "tree-sitter/vendor/tree-sitter-java"]
+	path = tree-sitter/vendor/tree-sitter-java
+	url = https://github.com/tree-sitter/tree-sitter-java
+[submodule "tree-sitter/vendor/tree-sitter-python"]
+	path = tree-sitter/vendor/tree-sitter-python
+	url = https://github.com/tree-sitter/tree-sitter-python

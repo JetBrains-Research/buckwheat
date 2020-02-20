@@ -1,0 +1,2 @@
+tests/pipeline_tests/data/*
+!tests/pipleine_tests/data/.gitkeep
