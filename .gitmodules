@@ -1,15 +1,15 @@
-[submodule "topic_dynamics/tree_sitter/vendor/tree-sitter-java"]
-	path = topic_dynamics/tree_sitter/vendor/tree-sitter-java
-	url = https://github.com/tree-sitter/tree-sitter-java
-[submodule "topic_dynamics/tree_sitter/vendor/tree-sitter-python"]
-	path = topic_dynamics/tree_sitter/vendor/tree-sitter-python
-	url = https://github.com/tree-sitter/tree-sitter-python
-[submodule "topic_dynamics/tree_sitter/vendor/tree-sitter-c"]
-	path = topic_dynamics/tree_sitter/vendor/tree-sitter-c
+[submodule "topic_dynamics/parsers/vendor/tree-sitter-c"]
+	path = topic_dynamics/parsers/vendor/tree-sitter-c
 	url = https://github.com/tree-sitter/tree-sitter-c
-[submodule "topic_dynamics/tree_sitter/vendor/tree-sitter-c-sharp"]
-	path = topic_dynamics/tree_sitter/vendor/tree-sitter-c-sharp
-	url = https://github.com/tree-sitter/tree-sitter-c-sharp
-[submodule "topic_dynamics/tree_sitter/vendor/tree-sitter-cpp"]
-	path = topic_dynamics/tree_sitter/vendor/tree-sitter-cpp
+[submodule "topic_dynamics/parsers/vendor/tree-sitter-cpp"]
+	path = topic_dynamics/parsers/vendor/tree-sitter-cpp
 	url = https://github.com/tree-sitter/tree-sitter-cpp
+[submodule "topic_dynamics/parsers/vendor/tree-sitter-c-sharp"]
+	path = topic_dynamics/parsers/vendor/tree-sitter-c-sharp
+	url = https://github.com/tree-sitter/tree-sitter-c-sharp
+[submodule "topic_dynamics/parsers/vendor/tree-sitter-java"]
+	path = topic_dynamics/parsers/vendor/tree-sitter-java
+	url = https://github.com/tree-sitter/tree-sitter-java
+[submodule "topic_dynamics/parsers/vendor/tree-sitter-python"]
+	path = topic_dynamics/parsers/vendor/tree-sitter-python
+	url = https://github.com/tree-sitter/tree-sitter-python
