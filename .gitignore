@@ -1,5 +1,2 @@
-topic-dynamics/experiments/pipeline/data/*
-!topic-dynamics/experiments/data/.gitkeep
-
-topic-dynamics/tree-sitter/build/*
-!topic-dynamics/tree-sitter/build/.gitkeep
+topic_dynamics/tree_sitter/build/*
+!topic_dynamics/tree_sitter/build/.gitkeep
