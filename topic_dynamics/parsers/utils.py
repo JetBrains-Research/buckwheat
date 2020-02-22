@@ -1,3 +1,7 @@
+"""
+Tree-sitter related functionality.
+"""
+
 import os
 
 from tree_sitter import Language, Parser
