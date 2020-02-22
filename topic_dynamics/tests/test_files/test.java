@@ -16,4 +16,3 @@ public class ArrayDemo {
 	System.out.println();
     }
 }
-
