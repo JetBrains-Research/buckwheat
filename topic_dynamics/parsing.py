@@ -112,7 +112,7 @@ def transform_identifiers(identifiers: List) -> List[str]:
 def main(repository: str, number: int, delta: int, lang: str, output: str, output_info: str) -> None:
     """
     Split the repository, parse the files, write the data into a file.
-    :param repository: path to the repository to process.
+    :param repository: path to the repository to process, must have a git file.
     :param number: the amount of dates.
     :param delta: the time step between dates
     :param lang: language of parsing.
@@ -120,7 +120,7 @@ def main(repository: str, number: int, delta: int, lang: str, output: str, outpu
     :param output_info: a file for information about output (slice indexes).
     :return: None.
     """
-    directory = os.path.abspath(os.path.join(repository, '..', repository + '_slices'))
+    directory = os.path.abspath(os.path.join(repository, os.pardir, 'project_slices'))
     os.mkdir(directory)
     dates = get_dates(number, delta)
     lists_of_files = {}
