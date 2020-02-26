@@ -1,0 +1,5 @@
+Log file created at: 2020/02/26 15:54:10
+Running on machine: areyde
+Log line format: [IWEF]mmdd hh:mm:ss.uuuuuu threadid file:line] msg
+W0226 15:54:10.203299 23947 check_messages.h:1082] Inconsistent fields size in ThetaMatrix: 11164 vs 0 vs 11164 vs 0;
+W0226 16:00:11.402460 23947 check_messages.h:1082] Inconsistent fields size in ThetaMatrix: 11164 vs 0 vs 11164 vs 0;

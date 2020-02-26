@@ -37,7 +37,7 @@ def define_model(number_of_topics: int, dictionary: artm.Dictionary, sparce_thet
     :param decorrelator_phi: Decorellator Phi Parameter.
     :return: ARTM model.
     """
-    topic_names = ['topic_{}'.format(i) for i in range(number_of_topics)]
+    topic_names = ['topic_{}'.format(i) for i in range(1, number_of_topics + 1)]
     model_artm = artm.ARTM(topic_names=topic_names, cache_theta=True,
                            scores=[artm.PerplexityScore(name='PerplexityScore',
                                                         dictionary=dictionary),
@@ -156,7 +156,7 @@ def save_most_topical_files(number_of_topics: int, theta: pd.DataFrame, director
         for line in fin:
             file_address[int(line.split(';')[0])] = line.split(';')[1]
     with open(os.path.abspath(os.path.join(directory, 'results', name + '_most_topical_files.txt')), 'w+') as fout:
-        for i in range(number_of_topics):
+        for i in range(1, number_of_topics + 1):
             fout.write('Topic ' + str(i) + '\n\n')
             dictionary_of_the_topic = theta.sort_values(by='topic_' + str(i), axis=1,
                                                         ascending=False).loc['topic_' + str(i)][:10].to_dict()
@@ -190,6 +190,9 @@ def save_dynamics(directory: str, name: str) -> None:
     for i in range(topics_weight.shape[0]):
         for j in range(topics_weight.shape[1]):
             topics_weight_percent[i, j] = topics_weight[i, j] / np.sum(topics_weight[:, j], keepdims=True) * 100
+    np.savetxt(os.path.abspath(os.path.join(directory, 'results', name + '_dynamics.txt')), topics_weight, '%10.5f')
+    np.savetxt(os.path.abspath(os.path.join(directory, 'results', name + '_dynamics_percent.txt')),
+               topics_weight_percent, '%10.5f')
 
     plt.stackplot(indexes.keys(), topics_weight)
     plt.xlabel('Year')

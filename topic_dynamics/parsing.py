@@ -84,7 +84,7 @@ def get_identifiers(file: str, lang: str) -> List[Tuple[str, int]]:
         for child in node.children:
             if child.type in node_types[lang]:
                 start, end = get_positional_bytes(child)
-                identifier = code[start:end].decode('utf-8')
+                identifier = code[start:end].decode('utf-8').lower()
                 if '\n' not in identifier:  # Will break output files. Can add other bad characters later
                     identifiers.append(identifier)
             if len(child.children) != 0:
