@@ -10,6 +10,7 @@ import pandas as pd
 import numpy as np
 import csv
 import matplotlib.pyplot as plt
+from operator import itemgetter
 
 
 def create_batches(directory: str, name: str) -> Tuple[artm.BatchVectorizer, artm.Dictionary]:
@@ -193,6 +194,15 @@ def save_dynamics(directory: str, name: str) -> None:
     np.savetxt(os.path.abspath(os.path.join(directory, 'results', name + '_dynamics.txt')), topics_weight, '%10.5f')
     np.savetxt(os.path.abspath(os.path.join(directory, 'results', name + '_dynamics_percent.txt')),
                topics_weight_percent, '%10.5f')
+    dynamics = []
+    for i in range(topics_weight_percent.shape[0]):
+        dynamics.append(['topic_{}'.format(i + 1), min(topics_weight_percent[i]),
+                         max(topics_weight_percent[i]), max(topics_weight_percent[i]) / min(topics_weight_percent[i])])
+    dynamics = sorted(dynamics, key=itemgetter(3), reverse=True)
+    with open(os.path.abspath(os.path.join(directory, 'results', name + '_dynamics_percent_change.txt')), 'w+') as fout:
+        for item in dynamics:
+            fout.write(item[0] + '\t' + str(format(item[1], '.5f')) + '\t' +
+                       str(format(item[2], '.5f')) + '\t' + str(format(item[3], '.5f')) + '\n')
 
     plt.stackplot(indexes.keys(), topics_weight)
     plt.xlabel('Year')
