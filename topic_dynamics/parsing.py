@@ -109,28 +109,71 @@ def transform_identifiers(identifiers: List) -> List[str]:
     return formatted_identifiers
 
 
-def main(repository: str, number: int, delta: int, lang: str, output: str, output_info: str) -> None:
+def uci_format(directory: str, name: str) -> None:
+    """
+    Transform the temporary file with tokens into the UCI bag-of-words format.
+    :param directory: the directory with the dataset.
+    :param name: name of the processed dataset.
+    :return: None.
+    """
+    number_of_documents = 0
+    number_of_nnz = 0
+    set_of_tokens = set()
+    # Compile a list of all tokens in the dataset for a sorted list
+    with open(os.path.abspath(os.path.join(directory, name + '_tokens.txt')), 'r') as fin:
+        for line in fin:
+            number_of_documents = number_of_documents + 1
+            for token in line.rstrip().split(';')[2].split(','):
+                number_of_nnz = number_of_nnz + 1
+                set_of_tokens.add(token.split(':')[0])
+    number_of_tokens = len(set_of_tokens)
+    # Sort the list of tokens, transform them to indexes and write to file
+    sorted_list_of_tokens = sorted(list(set_of_tokens))
+    sorted_dictionary_of_tokens = {}
+    with open(os.path.abspath(os.path.join(directory, 'vocab.' + name + '.txt')), 'w+') as fout:
+        for index in range(len(sorted_list_of_tokens)):
+            sorted_dictionary_of_tokens[sorted_list_of_tokens[index]] = index + 1
+            fout.write(sorted_list_of_tokens[index] + '\n')
+    # Compile the second necessary file: NNZ triplets sorted by document
+    with open(os.path.abspath(os.path.join(directory, name + '_tokens.txt')), 'r') as fin, open(os.path.abspath(os.path.join(directory, 'docword.' + name + '.txt')), 'w+') as fout:
+        fout.write(str(number_of_documents) + '\n' + str(number_of_tokens) + '\n' + str(number_of_nnz) + '\n')
+        for line in fin:
+            file_tokens = line.rstrip().split(';')[2].split(',')
+            file_tokens_separated = []
+            file_tokens_separated_numbered = []
+            for entry in file_tokens:
+                file_tokens_separated.append(entry.split(':'))
+            for entry in file_tokens_separated:
+                file_tokens_separated_numbered.append([sorted_dictionary_of_tokens[entry[0]], int(entry[1])])
+            file_tokens_separated_numbered = sorted(file_tokens_separated_numbered, key=itemgetter(0), reverse=False)
+            for entry in file_tokens_separated_numbered:
+                fout.write(str(line.split(';')[0]) + ' ' + str(entry[0]) + ' ' + str(entry[1]) + '\n')
+
+
+def tokenize_the_repository(repository: str, number: int, delta: int, lang: str, name: str) -> None:
     """
     Split the repository, parse the files, write the data into a file.
-    :param repository: path to the repository to process, must have a git file.
+    :param repository: path to the repository to process.
     :param number: the amount of dates.
     :param delta: the time step between dates
     :param lang: language of parsing.
-    :param output: an output file.
-    :param output_info: a file for information about output (slice indexes).
+    :param name: name of the dataset (directories with resulting files)
     :return: None.
     """
-    directory = os.path.abspath(os.path.join(repository, os.pardir, 'project_slices'))
+    # Create a folder for created files
+    directory = os.path.abspath(os.path.join(repository, os.pardir, name + '_processed'))
     os.mkdir(directory)
     dates = get_dates(number, delta)
     lists_of_files = {}
+    # Create temporal slices of the project and get a list of files for each slice
     for date in dates:
         subdirectory = os.path.abspath(os.path.join(directory, date.strftime('%Y-%m-%d')))
         checkout_by_date(repository, subdirectory, date)
         lists_of_files[date.strftime('%Y-%m-%d')] = get_a_list_of_files(subdirectory, get_extensions(lang))
     indexes_of_slices = {}
     count = 0
-    with open(output, 'w+') as fout:
+    # Write the data into a temporary file: by slices, then by documents
+    with open(os.path.abspath(os.path.join(directory, name + '_tokens.txt')), 'w+') as fout:
         for date in dates:
             starting_index = count + 1
             for file in lists_of_files[date.strftime('%Y-%m-%d')]:
@@ -145,6 +188,9 @@ def main(repository: str, number: int, delta: int, lang: str, output: str, outpu
                         continue
             ending_index = count
             indexes_of_slices[date.strftime('%Y-%m-%d')] = (starting_index, ending_index)
-    with open(output_info, 'w+') as fout:
+    # Write the index boundaries of slices into a separate log file
+    with open(os.path.abspath(os.path.join(directory, name + '_tokens_info.txt')), 'w+') as fout:
         for date in indexes_of_slices.keys():
             fout.write(date + ';' + str(indexes_of_slices[date][0]) + ',' + str(indexes_of_slices[date][1]) + '\n')
+    # Transform the data into the UCI bag-of-words format for topic modeling
+    uci_format(directory, name)
