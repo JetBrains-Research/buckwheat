@@ -163,7 +163,7 @@ def save_most_topical_files(number_of_topics: int, theta: pd.DataFrame, director
                                                         ascending=False).loc['topic_' + str(i)][:10].to_dict()
             for j in dictionary_of_the_topic.keys():
                 fout.write(str(j) + ';' + str(dictionary_of_the_topic[j]) + ';' + file_address[int(j)] + '\n')
-            print('\n')
+            fout.write('\n')
 
 
 def save_dynamics(directory: str, name: str) -> None:

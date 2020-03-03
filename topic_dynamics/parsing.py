@@ -189,7 +189,7 @@ def tokenize_the_repository(repository: str, number: int, delta: int, lang: str,
             ending_index = count
             indexes_of_slices[date.strftime('%Y-%m-%d')] = (starting_index, ending_index)
     # Write the index boundaries of slices into a separate log file
-    with open(os.path.abspath(os.path.join(directory, name + '_tokens_info.txt')), 'w+') as fout:
+    with open(os.path.abspath(os.path.join(directory, name + '_slices.txt')), 'w+') as fout:
         for date in indexes_of_slices.keys():
             fout.write(date + ';' + str(indexes_of_slices[date][0]) + ',' + str(indexes_of_slices[date][1]) + '\n')
     # Transform the data into the UCI bag-of-words format for topic modeling
