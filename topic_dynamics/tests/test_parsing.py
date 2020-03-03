@@ -15,14 +15,14 @@ class TestParser (unittest.TestCase):
         # Test parsing a Java file.
         file = os.path.join(tests_dir, "test_files/test.java")
         identifiers = get_identifiers(file, "java")
-        real_identifiers = [('i', 9), ('anArray', 6), ('length', 2), ('System', 2), ('out', 2), ('ArrayDemo', 1), ('main', 1), ('String', 1), ('args', 1), ('print', 1), ('println', 1)]
+        real_identifiers = [('i', 9), ('anarray', 6), ('length', 2), ('system', 2), ('out', 2), ('arraydemo', 1), ('main', 1), ('string', 1), ('args', 1), ('print', 1), ('println', 1)]
         self.assertEqual(identifiers, real_identifiers)
 
     def test_python(self):
         # Test parsing a Python file.
         file = os.path.join(tests_dir, "test_files/test.py")
         identifiers = get_identifiers(file, "python")
-        real_identifiers = [('left', 4), ('right', 4), ('n', 4), ('BOARD_SIZE', 3), ('col', 3), ('solve', 3), ('solution', 3), ('i', 3), ('under_attack', 2), ('queens', 2), ('c', 2), ('smaller_solutions', 2), ('answer', 2), ('r', 1), ('reversed', 1), ('range', 1), ('print', 1)]
+        real_identifiers = [('left', 4), ('right', 4), ('n', 4), ('board_size', 3), ('col', 3), ('solve', 3), ('solution', 3), ('i', 3), ('under_attack', 2), ('queens', 2), ('c', 2), ('smaller_solutions', 2), ('answer', 2), ('r', 1), ('reversed', 1), ('range', 1), ('print', 1)]
         self.assertEqual(identifiers, real_identifiers)
 
     def test_cpp(self):
