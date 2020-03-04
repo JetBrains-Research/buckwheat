@@ -204,16 +204,30 @@ def save_dynamics(directory: str, name: str) -> None:
             fout.write(item[0] + '\t' + str(format(item[1], '.5f')) + '\t' +
                        str(format(item[2], '.5f')) + '\t' + str(format(item[3], '.5f')) + '\n')
 
-    plt.stackplot(indexes.keys(), topics_weight)
-    plt.xlabel('Year')
+    plt.stackplot(range(1, len(indexes) + 1), topics_weight)
+    plt.xlabel('Slice')
     plt.ylabel('Proportion (a. u.)')
     plt.savefig(os.path.abspath(os.path.join(directory, 'results', name + '_dynamics.png')))
     plt.close()
 
-    plt.stackplot(indexes.keys(), topics_weight_percent)
-    plt.xlabel('Year')
+    for topic in topics_weight.tolist():
+        plt.plot(range(1, len(indexes) + 1), topic)
+    plt.xlabel('Slice')
+    plt.ylabel('Proportion (a. u.)')
+    plt.savefig(os.path.abspath(os.path.join(directory, 'results', name + '_dynamics_topics.png')))
+    plt.close()
+
+    plt.stackplot(range(1, len(indexes) + 1), topics_weight_percent)
+    plt.xlabel('Slice')
     plt.ylabel('Proportion (%)')
     plt.savefig(os.path.abspath(os.path.join(directory, 'results', name + '_dynamics_percent.png')))
+    plt.close()
+
+    for topic in topics_weight_percent.tolist():
+        plt.plot(range(1, len(indexes) + 1), topic)
+    plt.xlabel('Slice')
+    plt.ylabel('Proportion (%)')
+    plt.savefig(os.path.abspath(os.path.join(directory, 'results', name + '_dynamics_topics_percent.png')))
     plt.close()
 
 
@@ -234,8 +248,21 @@ def save_all_data(model: artm.artm_model.ARTM, directory: str, name: str, number
     save_most_topical_files(number_of_topics, theta_matrix, directory, name)
     save_dynamics(directory, name)
 
+
 def model_topics(directory: str, name: str, number_of_topics: int, sparce_theta: float, sparse_phi: float,
                  decorrelator_phi: float, number_of_document_passes: int, number_of_collection_passes: int) -> None:
+    """
+    Takes the input, creates the batches, trains the model with the necessary parameters an saves all statistics.
+    :param directory: the directory with the dataset.
+    :param name: name of the processed dataset.
+    :param number_of_topics: number of topics.
+    :param sparce_theta: Sparse Theta Parameter.
+    :param sparse_phi: Sparse Phi Parameter.
+    :param decorrelator_phi: Decorellator Phi Parameter.
+    :param number_of_document_passes: number of document passes.
+    :param number_of_collection_passes: number of collection passes.
+    :return: None.
+    """
     print('Creating the batches and the dictionary of the data.')
     batch_vectorizer, dictionary = create_batches(directory, name)
     print('Defining and training the model.')
