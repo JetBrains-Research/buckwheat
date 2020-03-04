@@ -11,6 +11,7 @@ from .slicing import get_dates, checkout_by_date
 from collections import Counter
 from operator import itemgetter
 from glob import glob
+from tqdm import tqdm
 
 
 def get_extensions(lang: str) -> str:
@@ -137,7 +138,7 @@ def uci_format(directory: str, name: str) -> None:
     # Compile the second necessary file: NNZ triplets sorted by document
     with open(os.path.abspath(os.path.join(directory, name + '_tokens.txt')), 'r') as fin, open(os.path.abspath(os.path.join(directory, 'docword.' + name + '.txt')), 'w+') as fout:
         fout.write(str(number_of_documents) + '\n' + str(number_of_tokens) + '\n' + str(number_of_nnz) + '\n')
-        for line in fin:
+        for line in tqdm(fin):
             file_tokens = line.rstrip().split(';')[2].split(',')
             file_tokens_separated = []
             file_tokens_separated_numbered = []
@@ -161,20 +162,22 @@ def tokenize_the_repository(repository: str, number: int, delta: int, lang: str,
     :return: None.
     """
     # Create a folder for created files
+    print('Creating the temporal slices of the data.')
     directory = os.path.abspath(os.path.join(repository, os.pardir, name + '_processed'))
     os.mkdir(directory)
     dates = get_dates(number, delta)
     lists_of_files = {}
     # Create temporal slices of the project and get a list of files for each slice
-    for date in dates:
+    for date in tqdm(dates):
         subdirectory = os.path.abspath(os.path.join(directory, date.strftime('%Y-%m-%d')))
         checkout_by_date(repository, subdirectory, date)
         lists_of_files[date.strftime('%Y-%m-%d')] = get_a_list_of_files(subdirectory, get_extensions(lang))
     indexes_of_slices = {}
     count = 0
     # Write the data into a temporary file: by slices, then by documents
+    print('Parsing each of the temporal slices.')
     with open(os.path.abspath(os.path.join(directory, name + '_tokens.txt')), 'w+') as fout:
-        for date in dates:
+        for date in tqdm(dates):
             starting_index = count + 1
             for file in lists_of_files[date.strftime('%Y-%m-%d')]:
                 if os.path.isfile(file):  # TODO: implement a better file-checking mechanism
@@ -189,8 +192,10 @@ def tokenize_the_repository(repository: str, number: int, delta: int, lang: str,
             ending_index = count
             indexes_of_slices[date.strftime('%Y-%m-%d')] = (starting_index, ending_index)
     # Write the index boundaries of slices into a separate log file
+    print('Writing the index boundaries of slices into an auxiliary file.')
     with open(os.path.abspath(os.path.join(directory, name + '_slices.txt')), 'w+') as fout:
         for date in indexes_of_slices.keys():
             fout.write(date + ';' + str(indexes_of_slices[date][0]) + ',' + str(indexes_of_slices[date][1]) + '\n')
     # Transform the data into the UCI bag-of-words format for topic modeling
+    print('Transforming the data into the UCI format for topic-modeling.')
     uci_format(directory, name)

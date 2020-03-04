@@ -32,6 +32,6 @@ def checkout_by_date(repository: str, directory: str, date: datetime) -> None:
     :return: None.
     """
     os.system('cp -r ' + repository + ' ' + directory)
-    os.system('(cd ' + directory + '; git checkout `git rev-list -n 1 --before="'
-              + date.strftime('%Y-%m-%d') + '" master`)')
+    os.system('(cd ' + directory + '; git checkout --quiet `git rev-list -n 1 --before="'
+              + date.strftime('%Y-%m-%d') + '" master` > /dev/null)')
     # TODO: consider non-master branches

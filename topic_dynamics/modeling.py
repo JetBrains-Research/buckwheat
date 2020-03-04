@@ -174,7 +174,7 @@ def save_dynamics(directory: str, name: str) -> None:
     :return: None.
     """
     indexes = {}
-    with open(os.path.abspath(os.path.join(directory, name + '_tokens_info.txt')), 'r') as fin:
+    with open(os.path.abspath(os.path.join(directory, name + '_slices.txt')), 'r') as fin:
         for line in fin:
             indexes[line.rstrip().split(';')[0]] = (int(line.rstrip().split(';')[1].split(',')[0]),
                                                     int(line.rstrip().split(';')[1].split(',')[1]))
@@ -233,3 +233,13 @@ def save_all_data(model: artm.artm_model.ARTM, directory: str, name: str, number
     phi_matrix, theta_matrix = save_matrices(model, directory, name)
     save_most_topical_files(number_of_topics, theta_matrix, directory, name)
     save_dynamics(directory, name)
+
+def model_topics(directory: str, name: str, number_of_topics: int, sparce_theta: float, sparse_phi: float,
+                 decorrelator_phi: float, number_of_document_passes: int, number_of_collection_passes: int) -> None:
+    print('Creating the batches and the dictionary of the data.')
+    batch_vectorizer, dictionary = create_batches(directory, name)
+    print('Defining and training the model.')
+    model = define_model(number_of_topics, dictionary, sparce_theta, sparse_phi, decorrelator_phi)
+    train_model(model, number_of_document_passes, number_of_collection_passes, dictionary, batch_vectorizer)
+    print('Saving the results.')
+    save_all_data(model, directory, name, number_of_topics)
