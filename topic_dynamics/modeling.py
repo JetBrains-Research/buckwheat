@@ -95,7 +95,7 @@ def save_parameters(model: artm.artm_model.ARTM, directory: str, name: str) -> N
     plt.xlabel('Iterations count')
     plt.ylabel('Perplexity')
     plt.grid(True)
-    plt.savefig(os.path.abspath(os.path.join(directory, 'results', name + '_perplexity.png')))
+    plt.savefig(os.path.abspath(os.path.join(directory, 'results', name + '_perplexity.png')), dpi = 1200)
     plt.close()
 
     plt.plot(range(model.num_phi_updates),
@@ -103,7 +103,7 @@ def save_parameters(model: artm.artm_model.ARTM, directory: str, name: str) -> N
     plt.xlabel('Iterations count')
     plt.ylabel('Phi Sparsity')
     plt.grid(True)
-    plt.savefig(os.path.abspath(os.path.join(directory, 'results', name + '_phi_sparsity.png')))
+    plt.savefig(os.path.abspath(os.path.join(directory, 'results', name + '_phi_sparsity.png')), dpi = 1200)
     plt.close()
 
     plt.plot(range(model.num_phi_updates),
@@ -111,7 +111,7 @@ def save_parameters(model: artm.artm_model.ARTM, directory: str, name: str) -> N
     plt.xlabel('Iterations count')
     plt.ylabel('Theta Sparsity')
     plt.grid(True)
-    plt.savefig(os.path.abspath(os.path.join(directory, 'results', name + '_theta_sparsity.png')))
+    plt.savefig(os.path.abspath(os.path.join(directory, 'results', name + '_theta_sparsity.png')), dpi = 1200)
     plt.close()
 
 
@@ -207,27 +207,27 @@ def save_dynamics(directory: str, name: str) -> None:
     plt.stackplot(range(1, len(indexes) + 1), topics_weight)
     plt.xlabel('Slice')
     plt.ylabel('Proportion (a. u.)')
-    plt.savefig(os.path.abspath(os.path.join(directory, 'results', name + '_dynamics.png')))
+    plt.savefig(os.path.abspath(os.path.join(directory, 'results', name + '_dynamics.png')), dpi = 1200)
     plt.close()
 
     for topic in topics_weight.tolist():
         plt.plot(range(1, len(indexes) + 1), topic)
     plt.xlabel('Slice')
     plt.ylabel('Proportion (a. u.)')
-    plt.savefig(os.path.abspath(os.path.join(directory, 'results', name + '_dynamics_topics.png')))
+    plt.savefig(os.path.abspath(os.path.join(directory, 'results', name + '_dynamics_topics.png')), dpi = 1200)
     plt.close()
 
     plt.stackplot(range(1, len(indexes) + 1), topics_weight_percent)
     plt.xlabel('Slice')
     plt.ylabel('Proportion (%)')
-    plt.savefig(os.path.abspath(os.path.join(directory, 'results', name + '_dynamics_percent.png')))
+    plt.savefig(os.path.abspath(os.path.join(directory, 'results', name + '_dynamics_percent.png')), dpi = 1200)
     plt.close()
 
     for topic in topics_weight_percent.tolist():
         plt.plot(range(1, len(indexes) + 1), topic)
     plt.xlabel('Slice')
     plt.ylabel('Proportion (%)')
-    plt.savefig(os.path.abspath(os.path.join(directory, 'results', name + '_dynamics_topics_percent.png')))
+    plt.savefig(os.path.abspath(os.path.join(directory, 'results', name + '_dynamics_topics_percent.png')), dpi = 1200)
     plt.close()
 
 
