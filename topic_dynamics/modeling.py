@@ -184,8 +184,8 @@ def save_dynamics(directory: str, name: str) -> None:
         next(reader, None)
         for row in reader:
             topics_weight.append([])
-            for year in indexes.keys():
-                topics_weight[-1].append(sum(float(i) for i in row[indexes[year][0]:indexes[year][1] + 1]))
+            for date in indexes.keys():
+                topics_weight[-1].append(sum(float(i) for i in row[indexes[date][0]:indexes[date][1] + 1]))
     topics_weight = np.asarray(topics_weight)
     topics_weight_percent = np.zeros((topics_weight.shape[0], topics_weight.shape[1]))
     for i in range(topics_weight.shape[0]):
