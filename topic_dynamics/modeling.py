@@ -2,15 +2,15 @@
 Topic modeling related functionality.
 """
 
+from operator import itemgetter
 from typing import Tuple
-
-import artm
-import os
-import pandas as pd
-import numpy as np
 import csv
 import matplotlib.pyplot as plt
-from operator import itemgetter
+import numpy as np
+import os
+import pandas as pd
+
+import artm
 
 
 def create_batches(directory: str, name: str) -> Tuple[artm.BatchVectorizer, artm.Dictionary]:
@@ -20,9 +20,9 @@ def create_batches(directory: str, name: str) -> Tuple[artm.BatchVectorizer, art
     :param name: name of the processed dataset.
     :return: BatchVectorizer and Dictionary.
     """
-    batch_vectorizer = artm.BatchVectorizer(data_path=directory, data_format='bow_uci',
+    batch_vectorizer = artm.BatchVectorizer(data_path=directory, data_format="bow_uci",
                                             collection_name=name,
-                                            target_folder=os.path.abspath(os.path.join(directory, name + '_batches')))
+                                            target_folder=os.path.abspath(os.path.join(directory, name + "_batches")))
     dictionary = batch_vectorizer.dictionary
     return batch_vectorizer, dictionary
 
@@ -38,19 +38,19 @@ def define_model(number_of_topics: int, dictionary: artm.Dictionary, sparce_thet
     :param decorrelator_phi: Decorellator Phi Parameter.
     :return: ARTM model.
     """
-    topic_names = ['topic_{}'.format(i) for i in range(1, number_of_topics + 1)]
+    topic_names = ["topic_{}".format(i) for i in range(1, number_of_topics + 1)]
     model_artm = artm.ARTM(topic_names=topic_names, cache_theta=True,
-                           scores=[artm.PerplexityScore(name='PerplexityScore',
+                           scores=[artm.PerplexityScore(name="PerplexityScore",
                                                         dictionary=dictionary),
-                                   artm.SparsityPhiScore(name='SparsityPhiScore'),
-                                   artm.SparsityThetaScore(name='SparsityThetaScore'),
-                                   artm.TopicKernelScore(name='TopicKernelScore',
+                                   artm.SparsityPhiScore(name="SparsityPhiScore"),
+                                   artm.SparsityThetaScore(name="SparsityThetaScore"),
+                                   artm.TopicKernelScore(name="TopicKernelScore",
                                                          probability_mass_threshold=0.3),
-                                   artm.TopTokensScore(name='TopTokensScore', num_tokens=15)],
-                           regularizers=[artm.SmoothSparseThetaRegularizer(name='SparseTheta',
+                                   artm.TopTokensScore(name="TopTokensScore", num_tokens=15)],
+                           regularizers=[artm.SmoothSparseThetaRegularizer(name="SparseTheta",
                                                                            tau=sparce_theta),
-                                         artm.SmoothSparsePhiRegularizer(name='SparsePhi', tau=sparse_phi),
-                                         artm.DecorrelatorPhiRegularizer(name='DecorrelatorPhi', tau=decorrelator_phi)])
+                                         artm.SmoothSparsePhiRegularizer(name="SparsePhi", tau=sparse_phi),
+                                         artm.DecorrelatorPhiRegularizer(name="DecorrelatorPhi", tau=decorrelator_phi)])
     return model_artm
 
 
@@ -78,40 +78,40 @@ def save_parameters(model: artm.artm_model.ARTM, directory: str, name: str) -> N
     :param name: name of the processed dataset.
     :return: None.
     """
-    with open(os.path.abspath(os.path.join(directory, 'results', name + '_parameters.txt')), 'w+') as fout:
-        fout.write('Sparsity Phi: {0:.3f}'.format(
-            model.score_tracker['SparsityPhiScore'].last_value) + '\n')
-        fout.write('Sparsity Theta: {0:.3f}'.format(
-            model.score_tracker['SparsityThetaScore'].last_value) + '\n')
-        fout.write('Kernel contrast: {0:.3f}'.format(
-            model.score_tracker['TopicKernelScore'].last_average_contrast) + '\n')
-        fout.write('Kernel purity: {0:.3f}'.format(
-            model.score_tracker['TopicKernelScore'].last_average_purity) + '\n')
-        fout.write('Perplexity: {0:.3f}'.format(
-            model.score_tracker['PerplexityScore'].last_value) + '\n')
+    with open(os.path.abspath(os.path.join(directory, "results", name + "_parameters.txt")), "w+") as fout:
+        fout.write("Sparsity Phi: {0:.3f}".format(
+            model.score_tracker["SparsityPhiScore"].last_value) + "\n")
+        fout.write("Sparsity Theta: {0:.3f}".format(
+            model.score_tracker["SparsityThetaScore"].last_value) + "\n")
+        fout.write("Kernel contrast: {0:.3f}".format(
+            model.score_tracker["TopicKernelScore"].last_average_contrast) + "\n")
+        fout.write("Kernel purity: {0:.3f}".format(
+            model.score_tracker["TopicKernelScore"].last_average_purity) + "\n")
+        fout.write("Perplexity: {0:.3f}".format(
+            model.score_tracker["PerplexityScore"].last_value) + "\n")
 
     plt.plot(range(model.num_phi_updates),
-             model.score_tracker['PerplexityScore'].value, 'r--', linewidth=2)
-    plt.xlabel('Iterations count')
-    plt.ylabel('Perplexity')
+             model.score_tracker["PerplexityScore"].value, "r--", linewidth=2)
+    plt.xlabel("Iterations count")
+    plt.ylabel("Perplexity")
     plt.grid(True)
-    plt.savefig(os.path.abspath(os.path.join(directory, 'results', name + '_perplexity.png')), dpi = 1200)
+    plt.savefig(os.path.abspath(os.path.join(directory, "results", name + "_perplexity.png")), dpi = 1200)
     plt.close()
 
     plt.plot(range(model.num_phi_updates),
-             model.score_tracker['SparsityPhiScore'].value, 'r--', linewidth=2)
-    plt.xlabel('Iterations count')
-    plt.ylabel('Phi Sparsity')
+             model.score_tracker["SparsityPhiScore"].value, "r--", linewidth=2)
+    plt.xlabel("Iterations count")
+    plt.ylabel("Phi Sparsity")
     plt.grid(True)
-    plt.savefig(os.path.abspath(os.path.join(directory, 'results', name + '_phi_sparsity.png')), dpi = 1200)
+    plt.savefig(os.path.abspath(os.path.join(directory, "results", name + "_phi_sparsity.png")), dpi = 1200)
     plt.close()
 
     plt.plot(range(model.num_phi_updates),
-             model.score_tracker['SparsityThetaScore'].value, 'r--', linewidth=2)
-    plt.xlabel('Iterations count')
-    plt.ylabel('Theta Sparsity')
+             model.score_tracker["SparsityThetaScore"].value, "r--", linewidth=2)
+    plt.xlabel("Iterations count")
+    plt.ylabel("Theta Sparsity")
     plt.grid(True)
-    plt.savefig(os.path.abspath(os.path.join(directory, 'results', name + '_theta_sparsity.png')), dpi = 1200)
+    plt.savefig(os.path.abspath(os.path.join(directory, "results", name + "_theta_sparsity.png")), dpi = 1200)
     plt.close()
 
 
@@ -123,9 +123,9 @@ def save_most_popular_tokens(model: artm.artm_model.ARTM, directory: str, name: 
     :param name: name of the processed dataset.
     :return: None.
     """
-    with open(os.path.abspath(os.path.join(directory, 'results', name + '_most_popular_tokens.txt')), 'w+') as fout:
+    with open(os.path.abspath(os.path.join(directory, "results", name + "_most_popular_tokens.txt")), "w+") as fout:
         for topic_name in model.topic_names:
-            fout.write(topic_name + ' : ' + str(model.score_tracker['TopTokensScore'].last_tokens[topic_name]) + '\n')
+            fout.write(topic_name + " : " + str(model.score_tracker["TopTokensScore"].last_tokens[topic_name]) + "\n")
 
 
 def save_matrices(model: artm.artm_model.ARTM, directory: str, name: str) -> Tuple[pd.DataFrame, pd.DataFrame]:
@@ -137,9 +137,9 @@ def save_matrices(model: artm.artm_model.ARTM, directory: str, name: str) -> Tup
     :return: Two matrices as DataFrames.
     """
     phi_matrix = model.get_phi().sort_index(axis=0)
-    phi_matrix.to_csv(os.path.abspath(os.path.join(directory, 'results', name + '_phi.csv')))
+    phi_matrix.to_csv(os.path.abspath(os.path.join(directory, "results", name + "_phi.csv")))
     theta_matrix = model.get_theta().sort_index(axis=1)
-    theta_matrix.to_csv(os.path.abspath(os.path.join(directory, 'results', name + '_theta.csv')))
+    theta_matrix.to_csv(os.path.abspath(os.path.join(directory, "results", name + "_theta.csv")))
     return phi_matrix, theta_matrix
 
 
@@ -153,17 +153,17 @@ def save_most_topical_files(number_of_topics: int, theta: pd.DataFrame, director
     :return: None.
     """
     file_address = {}
-    with open(os.path.abspath(os.path.join(directory, name + '_tokens.txt')), 'r') as fin:
+    with open(os.path.abspath(os.path.join(directory, name + "_tokens.txt")), "r") as fin:
         for line in fin:
-            file_address[int(line.split(';')[0])] = line.split(';')[1]
-    with open(os.path.abspath(os.path.join(directory, 'results', name + '_most_topical_files.txt')), 'w+') as fout:
+            file_address[int(line.split(";")[0])] = line.split(";")[1]
+    with open(os.path.abspath(os.path.join(directory, "results", name + "_most_topical_files.txt")), "w+") as fout:
         for i in range(1, number_of_topics + 1):
-            fout.write('Topic ' + str(i) + '\n\n')
-            dictionary_of_the_topic = theta.sort_values(by='topic_' + str(i), axis=1,
-                                                        ascending=False).loc['topic_' + str(i)][:10].to_dict()
+            fout.write("Topic " + str(i) + "\n\n")
+            dictionary_of_the_topic = theta.sort_values(by="topic_" + str(i), axis=1,
+                                                        ascending=False).loc["topic_" + str(i)][:10].to_dict()
             for j in dictionary_of_the_topic.keys():
-                fout.write(str(j) + ';' + str(dictionary_of_the_topic[j]) + ';' + file_address[int(j)] + '\n')
-            fout.write('\n')
+                fout.write(str(j) + ";" + str(dictionary_of_the_topic[j]) + ";" + file_address[int(j)] + "\n")
+            fout.write("\n")
 
 
 def save_dynamics(directory: str, name: str) -> None:
@@ -174,12 +174,12 @@ def save_dynamics(directory: str, name: str) -> None:
     :return: None.
     """
     indexes = {}
-    with open(os.path.abspath(os.path.join(directory, name + '_slices.txt')), 'r') as fin:
+    with open(os.path.abspath(os.path.join(directory, name + "_slices.txt")), "r") as fin:
         for line in fin:
-            indexes[line.rstrip().split(';')[0]] = (int(line.rstrip().split(';')[1].split(',')[0]),
-                                                    int(line.rstrip().split(';')[1].split(',')[1]))
+            indexes[line.rstrip().split(";")[0]] = (int(line.rstrip().split(";")[1].split(",")[0]),
+                                                    int(line.rstrip().split(";")[1].split(",")[1]))
     topics_weight = []
-    with open(os.path.abspath(os.path.join(directory, 'results', name + '_theta.csv')), 'r') as fin:
+    with open(os.path.abspath(os.path.join(directory, "results", name + "_theta.csv")), "r") as fin:
         reader = csv.reader(fin)
         next(reader, None)
         for row in reader:
@@ -191,43 +191,43 @@ def save_dynamics(directory: str, name: str) -> None:
     for i in range(topics_weight.shape[0]):
         for j in range(topics_weight.shape[1]):
             topics_weight_percent[i, j] = topics_weight[i, j] / np.sum(topics_weight[:, j], keepdims=True) * 100
-    np.savetxt(os.path.abspath(os.path.join(directory, 'results', name + '_dynamics.txt')), topics_weight, '%10.5f')
-    np.savetxt(os.path.abspath(os.path.join(directory, 'results', name + '_dynamics_percent.txt')),
-               topics_weight_percent, '%10.5f')
+    np.savetxt(os.path.abspath(os.path.join(directory, "results", name + "_dynamics.txt")), topics_weight, "%10.5f")
+    np.savetxt(os.path.abspath(os.path.join(directory, "results", name + "_dynamics_percent.txt")),
+               topics_weight_percent, "%10.5f")
     dynamics = []
     for i in range(topics_weight_percent.shape[0]):
-        dynamics.append(['topic_{}'.format(i + 1), min(topics_weight_percent[i]),
+        dynamics.append(["topic_{}".format(i + 1), min(topics_weight_percent[i]),
                          max(topics_weight_percent[i]), max(topics_weight_percent[i]) / min(topics_weight_percent[i])])
     dynamics = sorted(dynamics, key=itemgetter(3), reverse=True)
-    with open(os.path.abspath(os.path.join(directory, 'results', name + '_dynamics_percent_change.txt')), 'w+') as fout:
+    with open(os.path.abspath(os.path.join(directory, "results", name + "_dynamics_percent_change.txt")), "w+") as fout:
         for item in dynamics:
-            fout.write(item[0] + '\t' + str(format(item[1], '.5f')) + '\t' +
-                       str(format(item[2], '.5f')) + '\t' + str(format(item[3], '.5f')) + '\n')
+            fout.write(item[0] + "\t" + str(format(item[1], ".5f")) + "\t" +
+                       str(format(item[2], ".5f")) + "\t" + str(format(item[3], ".5f")) + "\n")
 
     plt.stackplot(range(1, len(indexes) + 1), topics_weight)
-    plt.xlabel('Slice')
-    plt.ylabel('Proportion (a. u.)')
-    plt.savefig(os.path.abspath(os.path.join(directory, 'results', name + '_dynamics.png')), dpi = 1200)
+    plt.xlabel("Slice")
+    plt.ylabel("Proportion (a. u.)")
+    plt.savefig(os.path.abspath(os.path.join(directory, "results", name + "_dynamics.png")), dpi = 1200)
     plt.close()
 
     for topic in topics_weight.tolist():
         plt.plot(range(1, len(indexes) + 1), topic)
-    plt.xlabel('Slice')
-    plt.ylabel('Proportion (a. u.)')
-    plt.savefig(os.path.abspath(os.path.join(directory, 'results', name + '_dynamics_topics.png')), dpi = 1200)
+    plt.xlabel("Slice")
+    plt.ylabel("Proportion (a. u.)")
+    plt.savefig(os.path.abspath(os.path.join(directory, "results", name + "_dynamics_topics.png")), dpi = 1200)
     plt.close()
 
     plt.stackplot(range(1, len(indexes) + 1), topics_weight_percent)
-    plt.xlabel('Slice')
-    plt.ylabel('Proportion (%)')
-    plt.savefig(os.path.abspath(os.path.join(directory, 'results', name + '_dynamics_percent.png')), dpi = 1200)
+    plt.xlabel("Slice")
+    plt.ylabel("Proportion (%)")
+    plt.savefig(os.path.abspath(os.path.join(directory, "results", name + "_dynamics_percent.png")), dpi = 1200)
     plt.close()
 
     for topic in topics_weight_percent.tolist():
         plt.plot(range(1, len(indexes) + 1), topic)
-    plt.xlabel('Slice')
-    plt.ylabel('Proportion (%)')
-    plt.savefig(os.path.abspath(os.path.join(directory, 'results', name + '_dynamics_topics_percent.png')), dpi = 1200)
+    plt.xlabel("Slice")
+    plt.ylabel("Proportion (%)")
+    plt.savefig(os.path.abspath(os.path.join(directory, "results", name + "_dynamics_topics_percent.png")), dpi = 1200)
     plt.close()
 
 
@@ -240,8 +240,8 @@ def save_all_data(model: artm.artm_model.ARTM, directory: str, name: str, number
     :param number_of_topics: the number of topics.
     :return: None.
     """
-    if not os.path.exists(os.path.abspath(os.path.join(directory, 'results'))):
-        os.makedirs(os.path.abspath(os.path.join(directory, 'results')))
+    if not os.path.exists(os.path.abspath(os.path.join(directory, "results"))):
+        os.makedirs(os.path.abspath(os.path.join(directory, "results")))
     save_parameters(model, directory, name)
     save_most_popular_tokens(model, directory, name)
     phi_matrix, theta_matrix = save_matrices(model, directory, name)
@@ -263,10 +263,11 @@ def model_topics(directory: str, name: str, number_of_topics: int, sparce_theta:
     :param number_of_collection_passes: number of collection passes.
     :return: None.
     """
-    print('Creating the batches and the dictionary of the data.')
+    print("Creating the batches and the dictionary of the data.")
     batch_vectorizer, dictionary = create_batches(directory, name)
-    print('Defining and training the model.')
+    print("Defining and training the model.")
     model = define_model(number_of_topics, dictionary, sparce_theta, sparse_phi, decorrelator_phi)
     train_model(model, number_of_document_passes, number_of_collection_passes, dictionary, batch_vectorizer)
-    print('Saving the results.')
+    print("Saving the results.")
     save_all_data(model, directory, name, number_of_topics)
+    print("Topic modeling finished.")

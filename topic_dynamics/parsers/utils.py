@@ -30,7 +30,7 @@ def get_tree_sitter_so() -> str:
 def main() -> None:
     """
     Initialize tree-sitter library.
-    :return: None
+    :return: None.
     """
     # root directory for tree-sitter
     tree_sitter_dir = get_tree_sitter_dir()
@@ -55,6 +55,7 @@ def main() -> None:
             python_grammar_loc
         ]
     )
+    print("Parser successfully initialized.")
 
 
 def get_parser(lang: str) -> Parser:
