@@ -3,6 +3,7 @@ Parsing-related functionality.
 """
 
 from collections import Counter
+from tempfile import TemporaryDirectory
 from operator import itemgetter
 from pathlib import Path
 from typing import List, Tuple
@@ -154,9 +155,10 @@ def uci_format(directory: str, name: str) -> None:
                 fout.write(str(line.split(";")[0]) + " " + str(entry[0]) + " " + str(entry[1]) + "\n")
 
 
-def slice_and_parse_full_files(repository: str, n_dates: int, time_delta: int, lang: str, name: str) -> None:
+def slice_and_parse(repository: str, n_dates: int, time_delta: int, lang: str, name: str) -> None:
     """
-    Split the repository, parse the full files, write the data into a file, transform into the UCI format.
+    Split the repository, parse the full files, write the data into a file.
+    Can be called for parsing full files and for parsing diffs only.
     :param repository: path to the repository to process.
     :param n_dates: the amount of dates.
     :param time_delta: the time step between dates.
@@ -169,36 +171,47 @@ def slice_and_parse_full_files(repository: str, n_dates: int, time_delta: int, l
     directory = os.path.abspath(os.path.join(repository, os.pardir, name + "_processed"))
     os.mkdir(directory)
     dates = get_dates(n_dates, time_delta)
-    date2files = {}
-    # Create temporal slices of the project and get a list of files for each slice
-    for date in tqdm(dates):
-        subdirectory = os.path.abspath(os.path.join(directory, date.strftime("%Y-%m-%d")))
-        checkout_by_date(repository, subdirectory, date)
-        date2files[date.strftime("%Y-%m-%d")] = get_files(subdirectory, get_extensions(lang))
     dates_indices = {}
     count = 0
-    # Write the data into a temporary file: by slices, then by documents
-    print("Parsing each of the temporal slices.")
+    # Create temporal slices of the project, get a list of files for each slice, parse all files, save the tokens
     with open(os.path.abspath(os.path.join(directory, name + "_tokens.txt")), "w+") as fout:
         for date in tqdm(dates):
-            starting_index = count + 1
-            for file in date2files[date.strftime("%Y-%m-%d")]:
-                if os.path.isfile(file):  # TODO: implement a better file-checking mechanism
-                    try:
-                        identifiers = get_identifiers(file, lang)
-                        if len(identifiers) != 0:
-                            count += 1
-                            formatted_identifiers = transform_identifiers(identifiers)
-                            fout.write(str(count) + ";" + file + ";" + ",".join(formatted_identifiers) + "\n")
-                    except UnicodeDecodeError:
-                        continue
-            ending_index = count
-            dates_indices[date.strftime("%Y-%m-%d")] = (starting_index, ending_index)
+            with TemporaryDirectory() as td:
+                subdirectory = os.path.abspath(os.path.join(directory, td, date.strftime("%Y-%m-%d")))
+                checkout_by_date(repository, subdirectory, date)
+                files = get_files(subdirectory, get_extensions(lang))
+                starting_index = count + 1
+                for file in files:
+                    if os.path.isfile(file):  # TODO: implement a better file-checking mechanism
+                        try:
+                            identifiers = get_identifiers(file, lang)
+                            if len(identifiers) != 0:
+                                count += 1
+                                formatted_identifiers = transform_identifiers(identifiers)
+                                fout.write(str(count) + ";" + os.path.relpath(file, os.path.abspath(os.path.join(directory, td))) + ";" + ",".join(formatted_identifiers) + "\n")
+                        except UnicodeDecodeError:
+                            continue
+                ending_index = count
+                dates_indices[date.strftime("%Y-%m-%d")] = (starting_index, ending_index)
     # Write the index boundaries of slices into a separate log file
     print("Writing the index boundaries of slices into an auxiliary file.")
     with open(os.path.abspath(os.path.join(directory, name + "_slices.txt")), "w+") as fout:
         for date in dates_indices.keys():
             fout.write(date + ";" + str(dates_indices[date][0]) + "," + str(dates_indices[date][1]) + "\n")
+
+
+def slice_and_parse_full_files(repository: str, n_dates: int, time_delta: int, lang: str, name: str) -> None:
+    """
+    Split the repository, parse the full files, write the data into a file, transform into the UCI format.
+    :param repository: path to the repository to process.
+    :param n_dates: the amount of dates.
+    :param time_delta: the time step between dates.
+    :param lang: language of parsing.
+    :param name: name of the dataset (directories with resulting files).
+    :return: None.
+    """
+    directory = os.path.abspath(os.path.join(repository, os.pardir, name + "_processed"))
+    slice_and_parse(repository, n_dates, time_delta, lang, name)
     print("Transforming the data into the UCI format for topic-modeling.")
     uci_format(directory, name)
 
@@ -214,42 +227,26 @@ def slice_and_parse_diffs(repository: str, n_dates: int, time_delta: int, lang: 
     :param name: name of the dataset (directories with resulting files).
     :return: None.
     """
-    # Create a folder for created files
-    print("Creating the temporal slices of the data.")
-    directory = os.path.abspath(os.path.join(repository, os.pardir, name + "_diffs_processed"))
-    os.mkdir(directory)
+    directory = os.path.abspath(os.path.join(repository, os.pardir, name + "_processed"))
     dates = get_dates(n_dates, time_delta)
-    date2files = {}
-    # Create temporal slices of the project and get a list of files for each slice
-    for date in tqdm(dates):
-        subdirectory = os.path.abspath(os.path.join(directory, date.strftime("%Y-%m-%d")))
-        checkout_by_date(repository, subdirectory, date)
-        date2files[date.strftime("%Y-%m-%d")] = get_files(subdirectory, get_extensions(lang))
+    slice_and_parse(repository, n_dates, time_delta, lang, name)
+
+    # Split the tokens of full files by versions
+    print("Splitting the tokens of full files by versions.")
+    slice_number = 0
     dates_indices = {}
-    count_index = 0
-    # Write the data into temporary files
-    os.mkdir(os.path.abspath(os.path.join(directory, name + "_tokens")))
-    print("Parsing each of the temporal slices.")
-    for date in tqdm(range(n_dates)):
-        with open(os.path.abspath(os.path.join(directory, name + "_tokens", str(date + 1) + "_tokens.txt")), "w+") as fout:
-            starting_index = count_index + 1
-            for file in date2files[dates[date].strftime("%Y-%m-%d")]:
-                if os.path.isfile(file):  # TODO: implement a better file-checking mechanism
-                    try:
-                        identifiers = get_identifiers(file, lang)
-                        if len(identifiers) != 0:
-                            count_index += 1
-                            formatted_identifiers = transform_identifiers(identifiers)
-                            fout.write(str(count_index) + ";" + file + ";" + ",".join(formatted_identifiers) + "\n")
-                    except UnicodeDecodeError:
-                        continue
-            ending_index = count_index
-            dates_indices[dates[date].strftime("%Y-%m-%d")] = (starting_index, ending_index)
-    # Write the index boundaries of slices into a separate log file
-    print("Writing the index boundaries of slices into an auxiliary file.")
-    with open(os.path.abspath(os.path.join(directory, name + "_slices.txt")), "w+") as fout:
-        for date in dates_indices.keys():
-            fout.write(date + ";" + str(dates_indices[date][0]) + "," + str(dates_indices[date][1]) + "\n")
+    os.mkdir(os.path.abspath(os.path.join(directory, name + "_slices_tokens")))
+    with open(os.path.abspath(os.path.join(directory, name + "_slices.txt")), "r") as fin:
+        for line in fin:
+            slice_number = slice_number + 1
+            dates_indices[slice_number] = (int(line.rstrip().split(";")[1].split(",")[0]),
+                                           int(line.rstrip().split(";")[1].split(",")[1]))
+    for date in tqdm(dates_indices.keys()):
+        with open(os.path.abspath(os.path.join(directory, name + "_tokens.txt")), "r") as fin, open(os.path.abspath(os.path.join(directory, name + "_slices_tokens", str(date) + ".txt")), "w+") as fout:
+            for line in fin:
+                if (int(line.split(";")[0]) >= dates_indices[date][0]) and (int(line.split(";")[0]) <= dates_indices[date][1]):
+                    fout.write(line)
+
     # Compare the versions and create a new list of tokens
     print("Calculating the diffs between versions and transforming the token lists.")
     diff_indices = {}
@@ -258,11 +255,11 @@ def slice_and_parse_diffs(repository: str, n_dates: int, time_delta: int, lang: 
         for date in tqdm(range(2, n_dates + 1)):
             starting_index_diff = count_index_diff+ 1
             previous_version = {}
-            with open(os.path.abspath(os.path.join(directory, name + "_tokens", str(date - 1) + "_tokens.txt")), "r") as fin:
+            with open(os.path.abspath(os.path.join(directory, name + "_slices_tokens", str(date - 1) + ".txt")), "r") as fin:
                 for line in fin:
                     previous_version[line.rstrip().split(";")[1]] = line.rstrip().split(";")[2]
             current_version = []
-            with open(os.path.abspath(os.path.join(directory, name + "_tokens", str(date) + "_tokens.txt")), "r") as fin:
+            with open(os.path.abspath(os.path.join(directory, name + "_slices_tokens", str(date) + ".txt")), "r") as fin:
                 for line in fin:
                     current_version.append(line.rstrip().split(";")[1])
                     address = line.rstrip().split(";")[1]
