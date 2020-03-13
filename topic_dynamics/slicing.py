@@ -3,8 +3,8 @@ The functionality of the temporal slicing of projects.
 """
 
 from datetime import datetime, timedelta
-from typing import List
 import os
+from typing import List
 
 
 def get_dates(n_dates: int, time_delta: int) -> List:

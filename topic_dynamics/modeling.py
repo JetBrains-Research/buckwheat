@@ -2,15 +2,15 @@
 Topic modeling related functionality.
 """
 
-from operator import itemgetter
-from typing import Tuple
 import csv
-import matplotlib.pyplot as plt
-import numpy as np
+from operator import itemgetter
 import os
-import pandas as pd
+from typing import Tuple
 
 import artm
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 
 
 def create_batches(directory: str, name: str) -> Tuple[artm.BatchVectorizer, artm.Dictionary]:

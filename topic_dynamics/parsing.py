@@ -3,14 +3,14 @@ Parsing-related functionality.
 """
 
 from collections import Counter
-from tempfile import TemporaryDirectory
 from operator import itemgetter
-from pathlib import Path
-from typing import List, Tuple
 import os
-import tree_sitter
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from typing import List, Tuple
 
 from tqdm import tqdm
+import tree_sitter
 
 from .parsers.utils import get_parser
 from .slicing import get_dates, checkout_by_date
