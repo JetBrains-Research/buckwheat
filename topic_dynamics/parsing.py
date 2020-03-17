@@ -22,9 +22,22 @@ NODE_TYPES = {"c": ["identifier", "type_identifier"],
               "python": ["identifier", "type_identifier"]}
 
 
+class DataForWriting:
+    def __init__(self, a, b):
+        self.a = a, self.b = b
+
+    def __repr__(self):
+        return str(self.a) + "," + str(self.b)
+
+    @classmethod
+    def parse(string):
+        a, b = map(int, string.split(","))
+        return DataForWriting(a, b)
+
+
 def get_extensions(lang: str) -> str:
     """
-    Returns the extension for a given language. TODO: more than one extension.
+    Returns the extension for a given language. TODO: get rid of this and add enry.
     :param lang: language name.
     :return: the extension.
     """
@@ -114,29 +127,30 @@ def transform_identifiers(identifiers: List) -> List[str]:
     return formatted_identifiers
 
 
-def slice_and_parse(repository: str, n_dates: int, time_delta: int, lang: str, name: str) -> None:
+def slice_and_parse(repository: str, output_dir: str, dates: List, lang: str, name: str) -> None:
     """
     Split the repository, parse the full files, write the data into a file.
     Can be called for parsing full files and for parsing diffs only.
+    When run several times, overwrites the data.
     :param repository: path to the repository to process.
-    :param n_dates: the amount of dates.
-    :param time_delta: the time step between dates.
+    :param output_dir: path to the output directory.
+    :param dates: a list of dates used for slicing.
     :param lang: language of parsing.
-    :param name: name of the dataset (directories with resulting files).
+    :param name: name of the dataset.
     :return: None.
     """
     print("Creating the temporal slices of the data.")
+    assert os.path.exists(os.path.abspath(os.path.join(repository, '.git')))
     # Create a folder for created files
-    directory = os.path.abspath(os.path.join(repository, os.pardir, name + "_processed"))
-    os.mkdir(directory)
-    dates = get_dates(n_dates, time_delta)
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
     dates_indices = {}
     count = 0
     # Create temporal slices of the project, get a list of files for each slice, parse all files, save the tokens
-    with open(os.path.abspath(os.path.join(directory, name + "_tokens.txt")), "w+") as fout:
+    with open(os.path.abspath(os.path.join(output_dir, name + "_tokens.txt")), "w+") as fout:
         for date in tqdm(dates):
             with TemporaryDirectory() as td:
-                subdirectory = os.path.abspath(os.path.join(directory, td, date.strftime("%Y-%m-%d")))
+                subdirectory = os.path.abspath(os.path.join(td, date.strftime("%Y-%m-%d")))
                 checkout_by_date(repository, subdirectory, date)
                 files = get_files(subdirectory, get_extensions(lang))
                 starting_index = count + 1
@@ -147,47 +161,54 @@ def slice_and_parse(repository: str, n_dates: int, time_delta: int, lang: str, n
                             if len(identifiers) != 0:
                                 count += 1
                                 formatted_identifiers = transform_identifiers(identifiers)
-                                fout.write(str(count) + ";" + os.path.relpath(file, os.path.abspath(os.path.join(directory, td))) + ";" + ",".join(formatted_identifiers) + "\n")
+                                fout.write(str(count) + ";" + os.path.relpath(file, os.path.abspath(
+                                    os.path.join(output_dir, td))) + ";" + ",".join(formatted_identifiers) + "\n")
                         except UnicodeDecodeError:
                             continue
                 ending_index = count
                 dates_indices[date.strftime("%Y-%m-%d")] = (starting_index, ending_index)
     # Write the index boundaries of slices into a separate log file
     print("Writing the index boundaries of slices into an auxiliary file.")
-    with open(os.path.abspath(os.path.join(directory, name + "_slices.txt")), "w+") as fout:
+    with open(os.path.abspath(os.path.join(output_dir, name + "_slices.txt")), "w+") as fout:
         for date in dates_indices.keys():
-            fout.write(date + ";" + str(dates_indices[date][0]) + "," + str(dates_indices[date][1]) + "\n")
+            if dates_indices[date][1] >= dates_indices[date][0]:  # Skips empty slices
+                fout.write(date + ";" + str(dates_indices[date][0]) + "," + str(dates_indices[date][1]) + "\n")
 
 
-def split_token_file(directory: str, name: str) -> None:
+def split_token_file(slices_file: str, tokens_file: str, output_dir: str) -> None:
     """
     Split a single file with tokens into splits for calculating diffs.
-    :param directory: the directory with the dataset.
-    :param name: name of the processed dataset.
+    :param slices_file: the address of the file with the indices of the slices.
+    :param tokens_file: the address of the temporary file with tokens.
+    :param output_dir: path to the output directory.
     :return: None.
     """
     print("Splitting the tokens of full files by versions.")
     slice_number = 0
     dates_indices = {}
-    os.mkdir(os.path.abspath(os.path.join(directory, name + "_slices_tokens")))
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
     # Read the data about the indices boundaries of slices
-    with open(os.path.abspath(os.path.join(directory, name + "_slices.txt")), "r") as fin:
+    with open(slices_file) as fin:
         for line in fin:
             slice_number = slice_number + 1
             dates_indices[slice_number] = (int(line.rstrip().split(";")[1].split(",")[0]),
                                            int(line.rstrip().split(";")[1].split(",")[1]))
     # Write the tokens of each slice into a separate file, numbered incrementally
     for date in tqdm(dates_indices.keys()):
-        with open(os.path.abspath(os.path.join(directory, name + "_tokens.txt")), "r") as fin, open(os.path.abspath(os.path.join(directory, name + "_slices_tokens", str(date) + ".txt")), "w+") as fout:
+        with open(tokens_file) as fin, open(os.path.abspath(os.path.join(output_dir,
+                                                                         str(date) + ".txt")), "w+") as fout:
             for line in fin:
-                if (int(line.split(";")[0]) >= dates_indices[date][0]) and (int(line.split(";")[0]) <= dates_indices[date][1]):
+                if (int(line.split(";")[0]) >= dates_indices[date][0]) and (
+                        int(line.split(";")[0]) <= dates_indices[date][1]):
                     fout.write(line)
 
 
-def calculate_diffs(directory: str, name: str, dates: List) -> None:
+def calculate_diffs(slices_tokens_dir: str, output_dir: str, name: str, dates: List) -> None:
     """
     For token files in a given directory transform into a single token file with diffs for topic modeling.
-    :param directory: the directory with the dataset.
+    :param slices_tokens_dir: the directory with token files splitted by slices.
+    :param output_dir: path to the output directory.
     :param name: name of the processed dataset.
     :param dates: a list of dates used for slicing.
     :return: None.
@@ -195,18 +216,16 @@ def calculate_diffs(directory: str, name: str, dates: List) -> None:
     print("Calculating the diffs between versions and transforming the token lists.")
     diff_indices = {}
     count_index_diff = 0
-    with open(os.path.abspath(os.path.join(directory, name + "_diffs_tokens.txt")), "w+") as fout:
+    with open(os.path.abspath(os.path.join(output_dir, name + "_diffs_tokens.txt")), "w+") as fout:
         for date in tqdm(range(2, len(dates) + 1)):
             starting_index_diff = count_index_diff + 1
             # Save the tokens of the "previous" slice into memory
             previous_version = {}
-            with open(os.path.abspath(os.path.join(directory, name + "_slices_tokens", str(date - 1) + ".txt")),
-                      "r") as fin:
+            with open(os.path.abspath(os.path.join(slices_tokens_dir, str(date - 1) + ".txt"))) as fin:
                 for line in fin:
                     previous_version[line.rstrip().split(";")[1]] = line.rstrip().split(";")[2]
             current_version = []
-            with open(os.path.abspath(os.path.join(directory, name + "_slices_tokens", str(date) + ".txt")),
-                      "r") as fin:
+            with open(os.path.abspath(os.path.join(slices_tokens_dir, str(date) + ".txt"))) as fin:
                 for line in fin:
                     # Iterate over files in the "current" version
                     current_version.append(line.rstrip().split(";")[1])
@@ -261,40 +280,43 @@ def calculate_diffs(directory: str, name: str, dates: List) -> None:
             diff_indices[dates[date - 1].strftime("%Y-%m-%d")] = (starting_index_diff, ending_index_diff)
     # Write the index boundaries of slices into a separate log file
     print("Writing the index boundaries of slices into an auxiliary file (updated).")
-    with open(os.path.abspath(os.path.join(directory, name + "_diffs_slices.txt")), "w+") as fout:
+    with open(os.path.abspath(os.path.join(output_dir, name + "_diffs_slices.txt")), "w+") as fout:
         for date in diff_indices.keys():
-            fout.write(date + ";" + str(diff_indices[date][0]) + "," + str(diff_indices[date][1]) + "\n")
+            if diff_indices[date][1] >= diff_indices[date][0]:  # Skips empty slices
+                fout.write(date + ";" + str(diff_indices[date][0]) + "," + str(diff_indices[date][1]) + "\n")
 
 
-def uci_format(directory: str, name: str) -> None:
+def uci_format(tokens_file: str, output_dir: str, name: str) -> None:
     """
     Transform the file with tokens into the UCI bag-of-words format.
-    :param directory: the directory with the dataset.
+    :param tokens_file: the address of the temporary file with tokens.
+    :param output_dir: path to the output directory.
     :param name: name of the processed dataset.
     :return: None.
     """
     print("Transforming the data into the UCI format for topic-modeling.")
-    number_of_documents = 0
-    number_of_nnz = 0
+    n_documents = 0
+    n_nnz = 0
     set_of_tokens = set()
     # Compile a list of all tokens in the dataset for a sorted list
-    with open(os.path.abspath(os.path.join(directory, name + "_tokens.txt")), "r") as fin:
+    with open(tokens_file) as fin:
         for line in fin:
-            number_of_documents = number_of_documents + 1
+            n_documents = n_documents + 1
             for token in line.rstrip().split(";")[2].split(","):
-                number_of_nnz = number_of_nnz + 1
+                n_nnz = n_nnz + 1
                 set_of_tokens.add(token.split(":")[0])
-    number_of_tokens = len(set_of_tokens)
+    n_tokens = len(set_of_tokens)
     # Sort the list of tokens, transform them to indexes and write to file
     sorted_list_of_tokens = sorted(list(set_of_tokens))
     sorted_dictionary_of_tokens = {}
-    with open(os.path.abspath(os.path.join(directory, "vocab." + name + ".txt")), "w+") as fout:
+    with open(os.path.abspath(os.path.join(output_dir, "vocab." + name + ".txt")), "w+") as fout:
         for index in range(len(sorted_list_of_tokens)):
             sorted_dictionary_of_tokens[sorted_list_of_tokens[index]] = index + 1
             fout.write(sorted_list_of_tokens[index] + "\n")
     # Compile the second necessary file: NNZ triplets sorted by document
-    with open(os.path.abspath(os.path.join(directory, name + "_tokens.txt")), "r") as fin, open(os.path.abspath(os.path.join(directory, "docword." + name + ".txt")), "w+") as fout:
-        fout.write(str(number_of_documents) + "\n" + str(number_of_tokens) + "\n" + str(number_of_nnz) + "\n")
+    with open(tokens_file) as fin, open(
+            os.path.abspath(os.path.join(output_dir, "docword." + name + ".txt")), "w+") as fout:
+        fout.write(str(n_documents) + "\n" + str(n_tokens) + "\n" + str(n_nnz) + "\n")
         for line in tqdm(fin):
             file_tokens = line.rstrip().split(";")[2].split(",")
             file_tokens_separated = []
@@ -308,35 +330,47 @@ def uci_format(directory: str, name: str) -> None:
                 fout.write(str(line.split(";")[0]) + " " + str(entry[0]) + " " + str(entry[1]) + "\n")
 
 
-def slice_and_parse_full_files(repository: str, n_dates: int, time_delta: int, lang: str, name: str) -> None:
+def slice_and_parse_full_files(repository: str, output_dir: str, n_dates: int,
+                               time_delta: int, lang: str, name: str) -> None:
     """
     Split the repository, parse the full files, write the data into a file, transform into the UCI format.
     :param repository: path to the repository to process.
+    :param output_dir: path to the output directory.
     :param n_dates: the amount of dates.
     :param time_delta: the time step between dates.
     :param lang: language of parsing.
-    :param name: name of the dataset (directories with resulting files).
+    :param name: name of the dataset.
     :return: None.
     """
-    directory = os.path.abspath(os.path.join(repository, os.pardir, name + "_processed"))
-    slice_and_parse(repository, n_dates, time_delta, lang, name)
-    uci_format(directory, name)
+    dates = get_dates(n_dates, time_delta)
+    tokens_file = os.path.abspath(os.path.join(output_dir, name + '_tokens.txt'))
+
+    slice_and_parse(repository, output_dir, dates, lang, name)
+    uci_format(tokens_file, output_dir, name)
+    print("Finished data preprocessing.")
 
 
-def slice_and_parse_diffs(repository: str, n_dates: int, time_delta: int, lang: str, name: str) -> None:
+def slice_and_parse_diffs(repository: str, output_dir: str, n_dates: int,
+                          time_delta: int, lang: str, name: str) -> None:
     """
     Split the repository, parse the full files, extract the diffs,
     write the data into a file, transform into the UCI format.
     :param repository: path to the repository to process.
+    :param output_dir: path to the output directory.
     :param n_dates: the amount of dates.
     :param time_delta: the time step between dates.
     :param lang: language of parsing.
-    :param name: name of the dataset (directories with resulting files).
+    :param name: name of the dataset.
     :return: None.
     """
-    directory = os.path.abspath(os.path.join(repository, os.pardir, name + "_processed"))
     dates = get_dates(n_dates, time_delta)
-    slice_and_parse(repository, n_dates, time_delta, lang, name)
-    split_token_file(directory, name)
-    calculate_diffs(directory, name, dates)
-    uci_format(directory, name + "_diffs")
+    slices_file = os.path.abspath(os.path.join(output_dir, name + '_slices.txt'))
+    tokens_file = os.path.abspath(os.path.join(output_dir, name + '_tokens.txt'))
+    slices_tokens_dir = os.path.abspath(os.path.join(output_dir, name + '_slices_tokens'))
+    tokens_file_diffs = os.path.abspath(os.path.join(output_dir, name + '_diffs_tokens.txt'))
+
+    slice_and_parse(repository, output_dir, dates, lang, name)
+    split_token_file(slices_file, tokens_file, slices_tokens_dir)
+    calculate_diffs(slices_tokens_dir, output_dir, name, dates)
+    uci_format(tokens_file_diffs, output_dir, name + "_diffs")
+    print("Finished data preprocessing.")
