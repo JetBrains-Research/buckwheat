@@ -221,8 +221,8 @@ def split_token_file(slices_file: str, tokens_file: str, output_dir: str) -> Non
 
 def read_tokens_counter(tokens: str) -> Counter:
     """
-    Transform a string of tokens "token1:count1,token2:count2' into a Counter object.
-    :param tokens: input string of tokens "token1:count1,token2:count2'.
+    Transform a string of tokens 'token1:count1,token2:count2' into a Counter object.
+    :param tokens: input string of tokens 'token1:count1,token2:count2'.
     :return: Counter object of token tuples (token, count).
     """
     counter_tokens = {}
