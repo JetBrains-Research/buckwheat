@@ -22,8 +22,26 @@ NODE_TYPES = {"c": ["identifier", "type_identifier"],
               "java": ["identifier", "type_identifier"],
               "python": ["identifier", "type_identifier"]}
 
-SliceLine = namedtuple("SliceLine", "date starting_index end_index")
+SliceLine = namedtuple("SliceLine", "date start_index end_index")
 TokenLine = namedtuple("TokenLine", "index address tokens")
+
+
+def slices_to_int(slices_line: List[str]) -> List[Any]:
+    """
+    Transform numerals in the split line of Slices file into an 'int' type during initialization.
+    :param slices_line: a split List[str, str, str].
+    :return: transformed List[str, int, int].
+    """
+    return [slices_line[0], int(slices_line[1]), int(slices_line[2])]
+
+
+def tokens_to_int(tokens_line: List[str]) -> List[Any]:
+    """
+    Transform numerals in the split line of Tokens file into an 'int' type during initialization.
+    :param tokens_line: a split List[str, str, str].
+    :return: transformed List[int, str, str].
+    """
+    return [int(tokens_line[0]), tokens_line[1], tokens_line[2]]
 
 
 def get_extensions(lang: str) -> str:
@@ -144,7 +162,7 @@ def slice_and_parse(repository: str, output_dir: str, dates: List[datetime.datet
                 subdirectory = os.path.abspath(os.path.join(td, date.strftime("%Y-%m-%d")))
                 checkout_by_date(repository, subdirectory, date)
                 files = get_files(subdirectory, get_extensions(lang))
-                starting_index = count + 1
+                start_index = count + 1
                 for file in files:
                     if os.path.isfile(file):  # TODO: implement a better file-checking mechanism
                         try:
@@ -152,18 +170,22 @@ def slice_and_parse(repository: str, output_dir: str, dates: List[datetime.datet
                             if len(identifiers) != 0:
                                 count += 1
                                 formatted_identifiers = transform_identifiers(identifiers)
-                                fout.write(str(count) + ";" + os.path.relpath(file, os.path.abspath(
-                                    os.path.join(output_dir, td))) + ";" + ",".join(formatted_identifiers) + "\n")
+                                fout.write("{file_index};{file_path};{tokens}\n"
+                                           .format(file_index=str(count),
+                                                   file_path=os.path.relpath(file, os.path.abspath(os.path.join(output_dir, td))),
+                                                   tokens=",".join(formatted_identifiers)))
                         except UnicodeDecodeError:
                             continue
-                ending_index = count
-                dates_indices[date.strftime("%Y-%m-%d")] = (starting_index, ending_index)
+                end_index = count
+                dates_indices[date.strftime("%Y-%m-%d")] = (start_index, end_index)
     # Write the index boundaries of slices into a separate log file
     print("Writing the index boundaries of slices into an auxiliary file.")
     with open(os.path.abspath(os.path.join(output_dir, name + "_slices.txt")), "w+") as fout:
         for date in dates_indices.keys():
             if dates_indices[date][1] >= dates_indices[date][0]:  # Skips empty slices
-                fout.write(";".join([date, str(dates_indices[date][0]), str(dates_indices[date][1])]) + "\n")
+                fout.write("{date};{start_index};{end_index}\n"
+                           .format(date=date, start_index=str(dates_indices[date][0]),
+                                   end_index=str(dates_indices[date][1])))
 
 
 def split_token_file(slices_file: str, tokens_file: str, output_dir: str) -> None:
@@ -185,17 +207,15 @@ def split_token_file(slices_file: str, tokens_file: str, output_dir: str) -> Non
     with open(slices_file) as fin:
         for line in fin:
             slice_number = slice_number + 1
-            slice_line = SliceLine(*line.split(";"))
-            date2indices[slice_number] = (int(slice_line.starting_index),
-                                          int(slice_line.end_index))
+            slice_line = SliceLine(*slices_to_int(line.split(";")))
+            date2indices[slice_number] = (slice_line.start_index, slice_line.end_index)
     # Write the tokens of each slice into a separate file, numbered incrementally
     for date in tqdm(date2indices.keys()):
         with open(tokens_file) as fin, open(os.path.abspath(os.path.join(output_dir,
                                                                          str(date) + ".txt")), "w+") as fout:
             for line in fin:
-                token_line = TokenLine(*line.split(";"))
-                if (int(token_line.index) >= date2indices[date][0]) and \
-                        (int(token_line.index) <= date2indices[date][1]):
+                token_line = TokenLine(*tokens_to_int(line.split(";")))
+                if (token_line.index >= date2indices[date][0]) and (token_line.index <= date2indices[date][1]):
                     fout.write(line)
 
 
@@ -245,7 +265,7 @@ def calculate_diffs(slices_tokens_dir: str, output_dir: str, name: str, dates: L
     count_index_diff = 0
     with open(os.path.abspath(os.path.join(output_dir, name + "_diffs_tokens.txt")), "w+") as fout:
         for date in tqdm(range(2, len(dates) + 1)):
-            starting_index_diff = count_index_diff + 1
+            start_index_diff = count_index_diff + 1
             # Save the tokens of the "previous" slice into memory
             previous_version = {}
             with open(os.path.abspath(os.path.join(slices_tokens_dir, str(date - 1) + ".txt"))) as fin:
@@ -280,8 +300,10 @@ def calculate_diffs(slices_tokens_dir: str, output_dir: str, name: str, dates: L
                     if len(new_tokens) != 0:
                         formatted_new_tokens = transform_identifiers(new_tokens)
                         count_index_diff = count_index_diff + 1
-                        fout.write(str(count_index_diff) + ";" + token_line.address + ";"
-                                   + ",".join(formatted_new_tokens) + "\n")
+                        fout.write("{file_index};{file_path};{tokens}\n"
+                                           .format(file_index=str(count_index_diff),
+                                                   file_path=token_line.address,
+                                                   tokens=",".join(formatted_new_tokens)))
             # Iterate over files in the "previous" version to see which have been deleted
             for address in previous_version.keys():
                 new_address = address.replace(dates[date - 2].strftime("%Y-%m-%d"),
@@ -292,15 +314,20 @@ def calculate_diffs(slices_tokens_dir: str, output_dir: str, name: str, dates: L
                     new_tokens = differentiate_tokens(tokens, "-", new_tokens)
                     formatted_new_tokens = transform_identifiers(new_tokens)
                     count_index_diff = count_index_diff + 1
-                    fout.write(str(count_index_diff) + ";" + address + ";" + ",".join(formatted_new_tokens) + "\n")
-            ending_index_diff = count_index_diff
-            diff_indices[dates[date - 1].strftime("%Y-%m-%d")] = (starting_index_diff, ending_index_diff)
+                    fout.write("{file_index};{file_path};{tokens}\n"
+                                           .format(file_index=str(count_index_diff),
+                                                   file_path=address,
+                                                   tokens=",".join(formatted_new_tokens)))
+            end_index_diff = count_index_diff
+            diff_indices[dates[date - 1].strftime("%Y-%m-%d")] = (start_index_diff, end_index_diff)
     # Write the index boundaries of slices into a separate log file
     print("Writing the index boundaries of slices into an auxiliary file (updated).")
     with open(os.path.abspath(os.path.join(output_dir, name + "_diffs_slices.txt")), "w+") as fout:
         for date in diff_indices.keys():
             if diff_indices[date][1] >= diff_indices[date][0]:  # Skips empty slices
-                fout.write(";".join([date, str(diff_indices[date][0]), str(diff_indices[date][1])]) + "\n")
+                fout.write("{date};{start_index};{end_index}\n"
+                           .format(date=date, start_index=str(diff_indices[date][0]),
+                                   end_index=str(diff_indices[date][1])))
 
 
 def uci_format(tokens_file: str, output_dir: str, name: str) -> None:
@@ -344,7 +371,8 @@ def uci_format(tokens_file: str, output_dir: str, name: str) -> None:
                 file_tokens_separated_numbered.append([sorted_dictionary_of_tokens[entry[0]], int(entry[1])])
             file_tokens_separated_numbered = sorted(file_tokens_separated_numbered, key=itemgetter(0), reverse=False)
             for entry in file_tokens_separated_numbered:
-                fout.write(" ".join([str(line.split(";")[0]), str(entry[0]), str(entry[1])]) + "\n")
+                fout.write("{doc_id} {token_id} {count}\n".format(doc_id=str(line.split(";")[0]),
+                                                                  token_id=str(entry[0]), count=str(entry[1])))
 
 
 def slice_and_parse_full_files(repository: str, output_dir: str, n_dates: int,
