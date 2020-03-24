@@ -1,7 +1,6 @@
 """
 Parsing-related functionality.
 """
-
 from collections import Counter
 import datetime
 from operator import itemgetter
@@ -62,7 +61,8 @@ def get_files(directory: str, extension: str) -> List[str]:
     """
     Get a list of files with a given extension.
     :param directory: path to directory.
-    :param extension: extension for file filtering - only files with this extension will be preserved.
+    :param extension: extension for file filtering -
+    only files with this extension will be preserved.
     :return: list of file paths.
     """
     dir_path = Path(directory)
@@ -113,7 +113,7 @@ def get_identifiers(file: str, lang: str) -> List[Tuple[str, int]]:
             if child.type in NODE_TYPES[lang]:
                 start, end = get_positional_bytes(child)
                 identifier = content[start:end].decode("utf-8").lower()
-                if "\n" not in identifier:  # Will break output files. Can add other bad characters later
+                if "\n" not in identifier:  # Will break output files. TODO: try to recreate bug.
                     identifiers.append(identifier)
             if len(child.children) != 0:
                 traverse_tree(child)
@@ -133,12 +133,14 @@ def transform_identifiers(identifiers: List[Tuple[str, int]]) -> List[str]:
     formatted_identifiers = []
     for identifier in identifiers:
         if identifier[0].rstrip() != "":  # Checking for occurring empty tokens.
-            formatted_identifiers.append("{identifier}:{count}".format(identifier=identifier[0].rstrip(),
-                                                                       count=str(identifier[1]).rstrip()))
+            formatted_identifiers.append("{identifier}:{count}"
+                                         .format(identifier=identifier[0].rstrip(),
+                                                 count=str(identifier[1]).rstrip()))
     return formatted_identifiers
 
 
-def slice_and_parse(repository: str, output_dir: str, dates: List[datetime.datetime], lang: str, name: str) -> None:
+def slice_and_parse(repository: str, output_dir: str, dates: List[datetime.datetime],
+                    lang: str, name: str) -> None:
     """
     Split the repository, parse the full files, write the data into a file.
     Can be called for parsing full files and for parsing diffs only.
@@ -157,7 +159,8 @@ def slice_and_parse(repository: str, output_dir: str, dates: List[datetime.datet
         os.makedirs(output_dir)
     dates_indices = {}
     count = 0
-    # Create temporal slices of the project, get a list of files for each slice, parse all files, save the tokens
+    # Create temporal slices of the project, get a list of files for each slice,
+    # parse all files, save the tokens
     with open(os.path.abspath(os.path.join(output_dir, name + "_tokens.txt")), "w+") as fout:
         for date in tqdm(dates):
             with TemporaryDirectory() as td:
@@ -193,8 +196,9 @@ def slice_and_parse(repository: str, output_dir: str, dates: List[datetime.datet
 
 def split_token_file(slices_file: str, tokens_file: str, output_dir: str) -> None:
     """
-    Split a single file with tokens into several by the date of the slice. For example, if the slices in the
-    file are 2015-01-01, 2015-02-01, and 2015-03-01 - it will divide the file into three.
+    Split a single file with tokens into several by the date of the slice. For example, if the
+    slices in the file are 2015-01-01, 2015-02-01, and 2015-03-01,
+    it will divide the file into three.
     :param slices_file: the path to the file with the indices of the slices.
     :param tokens_file: the path to the temporary file with tokens.
     :param output_dir: path to the output directory.
@@ -214,10 +218,12 @@ def split_token_file(slices_file: str, tokens_file: str, output_dir: str) -> Non
     # Write the tokens of each slice into a separate file, numbered incrementally
     for date in tqdm(date2indices.keys()):
         with open(tokens_file) as fin, open(os.path.abspath(os.path.join(output_dir,
-                                                                         str(date) + ".txt")), "w+") as fout:
+                                                                         str(date) + ".txt")),
+                                            "w+") as fout:
             for line in fin:
                 token_line = parse_token_line(line)
-                if (token_line.index >= date2indices[date][0]) and (token_line.index <= date2indices[date][1]):
+                if (token_line.index >= date2indices[date][0]) and (
+                        token_line.index <= date2indices[date][1]):
                     fout.write(line)
 
 
@@ -234,7 +240,8 @@ def read_tokens_counter(tokens: str) -> Counter:
     return counter_tokens
 
 
-def differentiate_tokens(tokens: List[Tuple[str, int]], sign: str, new_tokens: List[Any]) -> List[Tuple[str, int]]:
+def differentiate_tokens(tokens: List[Tuple[str, int]], sign: str,
+                         new_tokens: List[Any]) -> List[Tuple[str, int]]:
     """
     Transform the list of tuples (token, count) into the same list,
     but adding the necessary sign before each token (+ or -).
@@ -250,11 +257,13 @@ def differentiate_tokens(tokens: List[Tuple[str, int]], sign: str, new_tokens: L
     return new_tokens
 
 
-def calculate_diffs(slices_tokens_dir: str, output_dir: str, name: str, dates: List[datetime.datetime]) -> None:
+def calculate_diffs(slices_tokens_dir: str, output_dir: str, name: str,
+                    dates: List[datetime.datetime]) -> None:
     """
-    Given temporary tokens files of individual slices (separate files with tokens of each file for every slice)
-    transform this data into a single tokens file with every slice except the first one, where for every
-    slice and every file in it only changed tokens are saved: new tokens as '+token', deleted tokens as '-token'.
+    Given temporary tokens files of individual slices (separate files with tokens of each file for
+    every slice), transform this data into a single tokens file with every slice except the first
+    one, where for every slice and every file in it only changed tokens are saved: new tokens as
+    '+token', deleted tokens as '-token'.
     :param slices_tokens_dir: the directory with token files split by slices.
     :param output_dir: path to the output directory.
     :param name: name of the processed dataset.
@@ -269,7 +278,8 @@ def calculate_diffs(slices_tokens_dir: str, output_dir: str, name: str, dates: L
             start_index_diff = count_index_diff + 1
             # Save the tokens of the "previous" slice into memory
             previous_version = {}
-            with open(os.path.abspath(os.path.join(slices_tokens_dir, str(date - 1) + ".txt"))) as fin:
+            with open(os.path.abspath(
+                    os.path.join(slices_tokens_dir, str(date - 1) + ".txt"))) as fin:
                 for line in fin:
                     token_line = parse_token_line(line)
                     previous_version[token_line.path] = read_tokens_counter(token_line.tokens)
@@ -286,8 +296,10 @@ def calculate_diffs(slices_tokens_dir: str, output_dir: str, name: str, dates: L
                     if old_path in previous_version.keys():
                         old_tokens = previous_version[old_path]
                         # Calculate which tokens have been added and removed between versions
-                        created_tokens = sorted((tokens - old_tokens).items(), key=itemgetter(1), reverse=True)
-                        deleted_tokens = sorted((old_tokens - tokens).items(), key=itemgetter(1), reverse=True)
+                        created_tokens = sorted((tokens - old_tokens).items(), key=itemgetter(1),
+                                                reverse=True)
+                        deleted_tokens = sorted((old_tokens - tokens).items(), key=itemgetter(1),
+                                                reverse=True)
                         new_tokens = []
                         if len(created_tokens) != 0:
                             new_tokens = differentiate_tokens(created_tokens, "+", new_tokens)
@@ -310,7 +322,8 @@ def calculate_diffs(slices_tokens_dir: str, output_dir: str, name: str, dates: L
                 new_path = old_path.replace(dates[date - 2].strftime("%Y-%m-%d"),
                                             dates[date - 1].strftime("%Y-%m-%d"), 1)
                 if new_path not in current_version:
-                    tokens = sorted(previous_version[old_path].items(), key=itemgetter(1), reverse=True)
+                    tokens = sorted(previous_version[old_path].items(), key=itemgetter(1),
+                                    reverse=True)
                     new_tokens = []
                     new_tokens = differentiate_tokens(tokens, "-", new_tokens)
                     formatted_new_tokens = transform_identifiers(new_tokens)
@@ -333,9 +346,9 @@ def calculate_diffs(slices_tokens_dir: str, output_dir: str, name: str, dates: L
 
 def uci_format(tokens_file: str, output_dir: str, name: str) -> None:
     """
-    Transform the file with tokens into the UCI bag-of-words format. The format consists of two files:
-    the first one lists all the tokens in the dataset alphabetically, and the second one lists all the
-    triplets document-token-count, ranged first by documents, then by tokens.
+    Transform the file with tokens into the UCI bag-of-words format. The format consists of two
+    files: the first one lists all the tokens in the dataset alphabetically, and the second one
+    lists all the triplets document-token-count, ranged first by documents, then by tokens.
     :param tokens_file: the path to the temporary file with tokens.
     :param output_dir: path to the output directory.
     :param name: name of the processed dataset.
@@ -371,17 +384,22 @@ def uci_format(tokens_file: str, output_dir: str, name: str) -> None:
             for entry in file_tokens:
                 file_tokens_separated.append(entry.split(":"))
             for entry in file_tokens_separated:
-                file_tokens_separated_numbered.append([sorted_dictionary_of_tokens[entry[0]], int(entry[1])])
-            file_tokens_separated_numbered = sorted(file_tokens_separated_numbered, key=itemgetter(0), reverse=False)
+                file_tokens_separated_numbered.append(
+                    [sorted_dictionary_of_tokens[entry[0]], int(entry[1])])
+            file_tokens_separated_numbered = sorted(file_tokens_separated_numbered,
+                                                    key=itemgetter(0), reverse=False)
             for entry in file_tokens_separated_numbered:
                 fout.write("{doc_id} {token_id} {count}\n".format(doc_id=str(line.split(";")[0]),
-                                                                  token_id=str(entry[0]), count=str(entry[1])))
+                                                                  token_id=str(entry[0]),
+                                                                  count=str(entry[1])))
 
 
 def slice_and_parse_full_files(repository: str, output_dir: str, n_dates: int,
-                               day_delta: int, lang: str, name: str, start_date: str = None) -> None:
+                               day_delta: int, lang: str, name: str,
+                               start_date: str = None) -> None:
     """
-    Split the repository, parse the full files, write the data into a file, transform into the UCI format.
+    Split the repository, parse the full files, write the data into a file,
+    transform into the UCI format.
     :param repository: path to the repository to process.
     :param output_dir: path to the output directory.
     :param n_dates: number of dates.

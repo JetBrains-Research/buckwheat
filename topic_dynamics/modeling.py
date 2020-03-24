@@ -1,11 +1,10 @@
 """
 Topic modeling related functionality.
 """
-
 import csv
 from operator import itemgetter
 import os
-from typing import List, Tuple
+from typing import Any, Callable, List, Tuple
 
 import artm
 import matplotlib.pyplot as plt
@@ -15,13 +14,22 @@ import pandas as pd
 from .parsing import parse_slice_line, parse_token_line
 
 
-def check_output_directory(output_dir):
+def check_output_directory(output_dir: str) -> Callable[[Any, str], Any]:
+    """
+    Check that an argument of the function that represents a directory exists and is a directory.
+    :param output_dir: the name of the argument that represents a path to the directory.
+    :return: the decorator that checks that the argument
+    with the given name exists and is a directory.
+    """
+
     def inner_decorator(fn):
         def wrapper(*args, **kwargs):
             assert os.path.exists(kwargs[output_dir])
             assert os.path.isdir(kwargs[output_dir])
             return fn(*args, **kwargs)
+
         return wrapper
+
     return inner_decorator
 
 
@@ -34,13 +42,14 @@ def create_batches(directory: str, name: str) -> Tuple[artm.BatchVectorizer, art
     """
     print("Creating the batches and the dictionary of the data.")
     batch_vectorizer = artm.BatchVectorizer(data_path=directory, data_format="bow_uci",
-                                            collection_name=name,
-                                            target_folder=os.path.abspath(os.path.join(directory, name + "_batches")))
+                                            collection_name=name, target_folder=os.path.abspath(
+            os.path.join(directory, name + "_batches")))
     dictionary = batch_vectorizer.dictionary
     return batch_vectorizer, dictionary
 
 
-def define_model(n_topics: int, dictionary: artm.Dictionary, sparse_theta: float, sparse_phi: float,
+def define_model(n_topics: int, dictionary: artm.Dictionary, sparse_theta: float,
+                 sparse_phi: float,
                  decorrelator_phi: float) -> artm.artm_model.ARTM:
     """
     Define the ARTM model.
@@ -63,8 +72,10 @@ def define_model(n_topics: int, dictionary: artm.Dictionary, sparse_theta: float
                                    artm.TopTokensScore(name="TopTokensScore", num_tokens=15)],
                            regularizers=[artm.SmoothSparseThetaRegularizer(name="SparseTheta",
                                                                            tau=sparse_theta),
-                                         artm.SmoothSparsePhiRegularizer(name="SparsePhi", tau=sparse_phi),
-                                         artm.DecorrelatorPhiRegularizer(name="DecorrelatorPhi", tau=decorrelator_phi)])
+                                         artm.SmoothSparsePhiRegularizer(name="SparsePhi",
+                                                                         tau=sparse_phi),
+                                         artm.DecorrelatorPhiRegularizer(name="DecorrelatorPhi",
+                                                                         tau=decorrelator_phi)])
     return model_artm
 
 
@@ -143,11 +154,13 @@ def save_most_popular_tokens(model: artm.artm_model.ARTM, output_dir: str, name:
     :param name: name of the processed dataset.
     :return: None.
     """
-    with open(os.path.abspath(os.path.join(output_dir, name + "_most_popular_tokens.txt")), "w+") as fout:
+    with open(os.path.abspath(os.path.join(output_dir, name + "_most_popular_tokens.txt")),
+              "w+") as fout:
         for topic_name in model.topic_names:
             fout.write("{topic_name}: {tokens}\n"
                        .format(topic_name=topic_name,
-                               tokens=str(model.score_tracker["TopTokensScore"].last_tokens[topic_name])))
+                               tokens=str(model.score_tracker["TopTokensScore"]
+                                          .last_tokens[topic_name])))
 
 
 @check_output_directory(output_dir="output_dir")
@@ -184,16 +197,19 @@ def save_most_topical_files(theta_matrix: pd.DataFrame, tokens_file: str,
         for line in fin:
             token_line = parse_token_line(line)
             file2path[int(token_line.index)] = token_line.path
-    with open(os.path.abspath(os.path.join(output_dir, name + "_most_topical_files.txt")), "w+") as fout:
+    with open(os.path.abspath(os.path.join(output_dir, name + "_most_topical_files.txt")),
+              "w+") as fout:
         for i in range(1, theta_matrix.shape[0] + 1):
             fout.write("Topic " + str(i) + "\n\n")
             # Create a dictionary for this topic where keys are files and values are
-            # theta values for this topic and this file (only 10 largest)
+            # theta values for this topic and this file (n_files largest)
             topic_dict = theta_matrix.sort_values(by="topic_" + str(i), axis=1,
-                                                  ascending=False).loc["topic_" + str(i)][:n_files].to_dict()
+                                                  ascending=False).loc["topic_" +
+                                                                       str(i)][:n_files].to_dict()
             for k in topic_dict.keys():
                 fout.write("{file_index};{topic_weight:.3f};{file_path}\n"
-                           .format(file_index=str(k), topic_weight=topic_dict[k], file_path=file2path[int(k)]))
+                           .format(file_index=str(k), topic_weight=topic_dict[k],
+                                   file_path=file2path[int(k)]))
             fout.write("\n")
 
 
@@ -216,7 +232,8 @@ def get_topics_weight(slices_file: str, theta_file: str) -> np.array:
         for row in reader:
             topics_weight.append([])
             for date in date2indices.keys():
-                topics_weight[-1].append(sum(float(i) for i in row[date2indices[date][0]:date2indices[date][1] + 1]))
+                topics_weight[-1].append(
+                    sum(float(i) for i in row[date2indices[date][0]:date2indices[date][1] + 1]))
     topics_weight = np.asarray(topics_weight)
     return topics_weight
 
@@ -237,7 +254,8 @@ def get_normalized_dynamics(topics_weight: np.array) -> Tuple[np.array, List]:
     dynamics = []
     for i in range(topics_weight_percent.shape[0]):
         dynamics.append(["topic_{}".format(i + 1), min(topics_weight_percent[i]),
-                         max(topics_weight_percent[i]), max(topics_weight_percent[i]) / min(topics_weight_percent[i])])
+                         max(topics_weight_percent[i]),
+                         max(topics_weight_percent[i]) / min(topics_weight_percent[i])])
     dynamics = sorted(dynamics, key=itemgetter(3), reverse=True)
     return topics_weight_percent, dynamics
 
@@ -256,15 +274,18 @@ def save_dynamics(slices_file: str, theta_file: str, output_dir: str, name: str)
     topics_weight = get_topics_weight(slices_file, theta_file)
     topics_weight_percent, dynamics = get_normalized_dynamics(topics_weight)
 
-    np.savetxt(os.path.abspath(os.path.join(output_dir, name + "_dynamics.txt")), topics_weight, "%10.3f")
+    np.savetxt(os.path.abspath(os.path.join(output_dir, name + "_dynamics.txt")), topics_weight,
+               "%10.3f")
     np.savetxt(os.path.abspath(os.path.join(output_dir, name + "_dynamics_percent.txt")),
                topics_weight_percent, "%10.3f")
 
-    with open(os.path.abspath(os.path.join(output_dir, name + "_dynamics_percent_change.txt")), "w+") as fout:
+    with open(os.path.abspath(os.path.join(output_dir, name + "_dynamics_percent_change.txt")),
+              "w+") as fout:
         for topic in dynamics:
-            fout.write("{topic_name};{minimum_weight:.3f};{maximum_weight:.3f};{max_min_ratio:.3f}\n"
-                       .format(topic_name=topic[0], minimum_weight=topic[1],
-                               maximum_weight=topic[2], max_min_ratio=topic[3]))
+            fout.write(
+                "{topic_name};{minimum_weight:.3f};{maximum_weight:.3f};{max_min_ratio:.3f}\n"
+                .format(topic_name=topic[0], minimum_weight=topic[1],
+                        maximum_weight=topic[2], max_min_ratio=topic[3]))
 
     plt.stackplot(range(1, topics_weight.shape[1] + 1), topics_weight)
     plt.xlabel("Slice")
@@ -282,14 +303,16 @@ def save_dynamics(slices_file: str, theta_file: str, output_dir: str, name: str)
     plt.stackplot(range(1, topics_weight.shape[1] + 1), topics_weight_percent)
     plt.xlabel("Slice")
     plt.ylabel("Proportion (%)")
-    plt.savefig(os.path.abspath(os.path.join(output_dir, name + "_dynamics_percent.png")), dpi=1200)
+    plt.savefig(os.path.abspath(os.path.join(output_dir, name + "_dynamics_percent.png")),
+                dpi=1200)
     plt.close()
 
     for topic in topics_weight_percent.tolist():
         plt.plot(range(1, topics_weight.shape[1] + 1), topic)
     plt.xlabel("Slice")
     plt.ylabel("Proportion (%)")
-    plt.savefig(os.path.abspath(os.path.join(output_dir, name + "_dynamics_topics_percent.png")), dpi=1200)
+    plt.savefig(os.path.abspath(os.path.join(output_dir, name + "_dynamics_topics_percent.png")),
+                dpi=1200)
     plt.close()
 
 
@@ -323,7 +346,8 @@ def save_metadata(model: artm.artm_model.ARTM, output_dir: str, name: str, n_fil
 def model_topics(output_dir: str, name: str, n_topics: int, sparse_theta: float, sparse_phi: float,
                  decorrelator_phi: float, n_doc_iter: int, n_col_iter: int, n_files: int) -> None:
     """
-    Take the input, create the batches, train the model with the given parameters, and saves all metadata.
+    Take the input, create the batches, train the model with the given parameters,
+    and saves all metadata.
     :param output_dir: the output directory.
     :param name: name of the processed dataset.
     :param n_topics: number of topics.
