@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from .parsing import SliceLine, TokenLine, slices_to_int
+from .parsing import parse_slice_line, parse_token_line
 
 
 def check_output_directory(output_dir):
@@ -182,8 +182,8 @@ def save_most_topical_files(theta_matrix: pd.DataFrame, tokens_file: str,
     file2path = {}
     with open(tokens_file) as fin:
         for line in fin:
-            token_line = TokenLine(*line.split(";"))
-            file2path[int(token_line.index)] = token_line.address
+            token_line = parse_token_line(line)
+            file2path[int(token_line.index)] = token_line.path
     with open(os.path.abspath(os.path.join(output_dir, name + "_most_topical_files.txt")), "w+") as fout:
         for i in range(1, theta_matrix.shape[0] + 1):
             fout.write("Topic " + str(i) + "\n\n")
@@ -200,14 +200,14 @@ def save_most_topical_files(theta_matrix: pd.DataFrame, tokens_file: str,
 def get_topics_weight(slices_file: str, theta_file: str) -> np.array:
     """
     Read the theta file and transform it into topic weights for different slices.
-    :param slices_file: the address of the file with the indices of the slices.
-    :param theta_file: the address of the csv file with the theta matrix.
+    :param slices_file: the path to the file with the indices of the slices.
+    :param theta_file: the path tp the csv file with the theta matrix.
     :return np.array of weights of each topic for each slice.
     """
     date2indices = {}
     with open(slices_file) as fin:
         for line in fin:
-            slice_line = SliceLine(*slices_to_int(line.split(";")))
+            slice_line = parse_slice_line(line)
             date2indices[slice_line.date] = (slice_line.start_index, slice_line.end_index)
     topics_weight = []
     with open(theta_file) as fin:
@@ -247,8 +247,8 @@ def save_dynamics(slices_file: str, theta_file: str, output_dir: str, name: str)
     """
     Save figures with the dynamics.
     When run several times, overwrites the data.
-    :param slices_file: the address of the file with the indices of the slices.
-    :param theta_file: the address of the csv file with the theta matrix.
+    :param slices_file: the path to the file with the indices of the slices.
+    :param theta_file: the path to the csv file with the theta matrix.
     :param output_dir: the output directory.
     :param name: name of the processed dataset.
     :return: None.

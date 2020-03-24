@@ -3,7 +3,6 @@ Parsing-related tests.
 """
 
 import os
-from typing import List, Tuple
 import unittest
 
 from ..parsing import get_identifiers
