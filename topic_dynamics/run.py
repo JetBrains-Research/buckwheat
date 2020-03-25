@@ -17,21 +17,21 @@ def main(args: argparse.Namespace) -> None:
     if args.mode == "diffs":
         slice_and_parse_diffs(repository=args.input, output_dir=args.output,
                               n_dates=int(args.slices), day_delta=int(args.days),
-                              lang=args.language, name=args.name, start_date=args.start_date)
-        model_topics(output_dir=args.output, name=args.name + "_diffs", n_topics=int(args.topics),
+                              lang=args.language, start_date=args.start_date)
+        model_topics(output_dir=args.output, n_topics=int(args.topics),
                      sparse_theta=float(args.sparse_theta), sparse_phi=float(args.sparse_phi),
                      decorrelator_phi=float(args.decorrelator_phi),
                      n_doc_iter=int(args.document_passes), n_col_iter=int(args.collection_passes),
-                     n_files=int(args.topical_files))
+                     n_files=int(args.topical_files), diffs=True)
     elif args.mode == "files":
         slice_and_parse_full_files(repository=args.input, output_dir=args.output,
                                    n_dates=int(args.slices), day_delta=int(args.days),
-                                   lang=args.language, name=args.name, start_date=args.start_date)
-        model_topics(output_dir=args.output, name=args.name, n_topics=int(args.topics),
-                     sparse_theta=float(args.sparse_theta), sparse_phi=float(args.sparce_phi),
+                                   lang=args.language, start_date=args.start_date)
+        model_topics(output_dir=args.output,  n_topics=int(args.topics),
+                     sparse_theta=float(args.sparse_theta), sparse_phi=float(args.sparse_phi),
                      decorrelator_phi=float(args.decorrelator_phi),
                      n_doc_iter=int(args.document_passes), n_col_iter=int(args.collection_passes),
-                     n_files=int(args.topical_files))
+                     n_files=int(args.topical_files), diffs=False)
 
 
 if __name__ == "__main__":
@@ -41,9 +41,6 @@ if __name__ == "__main__":
                              " 'diffs' for only diffs of files (default).")
     parser.add_argument("-i", "--input", required=True, help="Full path to the input repository.")
     parser.add_argument("-o", "--output", required=True, help="Full path to the output directory.")
-    parser.add_argument("-n", "--name", default="dataset",
-                        help="The name of the dataset. Default name is 'dataset'. "
-                             "To be deprecated.")
     parser.add_argument("-s", "--slices", default=24,
                         help="Number of temporal slices. Default number is 24.")
     parser.add_argument("-d", "--days", default=60,

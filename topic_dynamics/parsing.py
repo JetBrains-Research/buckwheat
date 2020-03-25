@@ -142,7 +142,7 @@ def transform_identifiers(identifiers: List[Tuple[str, int]]) -> List[str]:
 
 
 def slice_and_parse(repository: str, output_dir: str, dates: List[datetime.datetime],
-                    lang: str, name: str) -> None:
+                    lang: str) -> None:
     """
     Split the repository, parse the full files, write the data into a file.
     Can be called for parsing full files and for parsing diffs only.
@@ -151,7 +151,6 @@ def slice_and_parse(repository: str, output_dir: str, dates: List[datetime.datet
     :param output_dir: path to the output directory.
     :param dates: a list of dates used for slicing.
     :param lang: programming language to use.
-    :param name: name of the dataset.
     :return: None.
     """
     print("Creating the temporal slices of the data.")
@@ -163,7 +162,7 @@ def slice_and_parse(repository: str, output_dir: str, dates: List[datetime.datet
     count = 0
     # Create temporal slices of the project, get a list of files for each slice,
     # parse all files, save the tokens
-    with open(os.path.abspath(os.path.join(output_dir, name + "_tokens.txt")), "w+") as fout:
+    with open(os.path.abspath(os.path.join(output_dir, "tokens.txt")), "w+") as fout:
         for date in tqdm(dates):
             with TemporaryDirectory() as td:
                 subdirectory = os.path.abspath(os.path.join(td, date.strftime("%Y-%m-%d")))
@@ -188,7 +187,7 @@ def slice_and_parse(repository: str, output_dir: str, dates: List[datetime.datet
                 dates_indices[date.strftime("%Y-%m-%d")] = (start_index, end_index)
     # Write the index boundaries of slices into a separate log file
     print("Writing the index boundaries of slices into an auxiliary file.")
-    with open(os.path.abspath(os.path.join(output_dir, name + "_slices.txt")), "w+") as fout:
+    with open(os.path.abspath(os.path.join(output_dir, "slices.txt")), "w+") as fout:
         for date in dates_indices.keys():
             if dates_indices[date][1] >= dates_indices[date][0]:  # Skips empty slices
                 fout.write("{date};{start_index};{end_index}\n"
@@ -258,7 +257,7 @@ def differentiate_tokens(tokens: List[Tuple[str, int]], sign: str,
     return new_tokens
 
 
-def calculate_diffs(slices_tokens_dir: str, output_dir: str, name: str,
+def calculate_diffs(slices_tokens_dir: str, output_dir: str,
                     dates: List[datetime.datetime]) -> None:
     """
     Given temporary tokens files of individual slices (separate files with tokens of each file for
@@ -267,14 +266,13 @@ def calculate_diffs(slices_tokens_dir: str, output_dir: str, name: str,
     '+token', deleted tokens as '-token'.
     :param slices_tokens_dir: the directory with token files split by slices.
     :param output_dir: path to the output directory.
-    :param name: name of the processed dataset.
     :param dates: a list of dates used for slicing.
     :return: None.
     """
     print("Calculating the diffs between versions and transforming the token lists.")
     diff_indices = {}
     count_index_diff = 0
-    with open(os.path.abspath(os.path.join(output_dir, name + "_diffs_tokens.txt")), "w+") as fout:
+    with open(os.path.abspath(os.path.join(output_dir, "diffs_tokens.txt")), "w+") as fout:
         for date in tqdm(range(2, len(dates) + 1)):
             start_index_diff = count_index_diff + 1
             # Save the tokens of the "previous" slice into memory
@@ -337,7 +335,7 @@ def calculate_diffs(slices_tokens_dir: str, output_dir: str, name: str,
             diff_indices[dates[date - 1].strftime("%Y-%m-%d")] = (start_index_diff, end_index_diff)
     # Write the index boundaries of slices into a separate log file
     print("Writing the index boundaries of slices into an auxiliary file (updated).")
-    with open(os.path.abspath(os.path.join(output_dir, name + "_diffs_slices.txt")), "w+") as fout:
+    with open(os.path.abspath(os.path.join(output_dir, "diffs_slices.txt")), "w+") as fout:
         for date in diff_indices.keys():
             if diff_indices[date][1] >= diff_indices[date][0]:  # Skips empty slices
                 fout.write("{date};{start_index};{end_index}\n"
@@ -352,7 +350,7 @@ def uci_format(tokens_file: str, output_dir: str, name: str) -> None:
     lists all the triplets document-token-count, ranged first by documents, then by tokens.
     :param tokens_file: the path to the temporary file with tokens.
     :param output_dir: path to the output directory.
-    :param name: name of the processed dataset.
+    :param name: name of the output dataset.
     :return: None.
     """
     print("Transforming the data into the UCI format for topic-modeling.")
@@ -396,8 +394,7 @@ def uci_format(tokens_file: str, output_dir: str, name: str) -> None:
 
 
 def slice_and_parse_full_files(repository: str, output_dir: str, n_dates: int,
-                               day_delta: int, lang: str, name: str,
-                               start_date: str = None) -> None:
+                               day_delta: int, lang: str, start_date: str = None) -> None:
     """
     Split the repository, parse the full files, write the data into a file,
     transform into the UCI format.
@@ -408,18 +405,17 @@ def slice_and_parse_full_files(repository: str, output_dir: str, n_dates: int,
     :param start_date: the starting (latest) date of the slicing, in the format YYYY-MM-DD,
     the default value is the moment of calling.
     :param lang: programming language to use.
-    :param name: name of the dataset.
     :return: None.
     """
     dates = get_dates(n_dates, day_delta, start_date)
-    tokens_file = os.path.abspath(os.path.join(output_dir, name + "_tokens.txt"))
-    slice_and_parse(repository, output_dir, dates, lang, name)
-    uci_format(tokens_file, output_dir, name)
+    tokens_file = os.path.abspath(os.path.join(output_dir, "tokens.txt"))
+    slice_and_parse(repository, output_dir, dates, lang)
+    uci_format(tokens_file, output_dir, "dataset")
     print("Finished data preprocessing.")
 
 
 def slice_and_parse_diffs(repository: str, output_dir: str, n_dates: int,
-                          day_delta: int, lang: str, name: str, start_date: str = None) -> None:
+                          day_delta: int, lang: str, start_date: str = None) -> None:
     """
     Split the repository, parse the full files, extract the diffs,
     write the data into a file, transform into the UCI format.
@@ -430,17 +426,16 @@ def slice_and_parse_diffs(repository: str, output_dir: str, n_dates: int,
     :param start_date: the starting (latest) date of the slicing, in the format YYYY-MM-DD,
     the default value is the moment of calling.
     :param lang: programming language to use.
-    :param name: name of the dataset.
     :return: None.
     """
     dates = get_dates(n_dates, day_delta, start_date)
-    slices_file = os.path.abspath(os.path.join(output_dir, name + "_slices.txt"))
-    tokens_file = os.path.abspath(os.path.join(output_dir, name + "_tokens.txt"))
-    slices_tokens_dir = os.path.abspath(os.path.join(output_dir, name + "_slices_tokens"))
-    tokens_file_diffs = os.path.abspath(os.path.join(output_dir, name + "_diffs_tokens.txt"))
+    slices_file = os.path.abspath(os.path.join(output_dir, "slices.txt"))
+    tokens_file = os.path.abspath(os.path.join(output_dir, "tokens.txt"))
+    slices_tokens_dir = os.path.abspath(os.path.join(output_dir, "slices_tokens"))
+    tokens_file_diffs = os.path.abspath(os.path.join(output_dir, "diffs_tokens.txt"))
 
-    slice_and_parse(repository, output_dir, dates, lang, name)
+    slice_and_parse(repository, output_dir, dates, lang)
     split_token_file(slices_file, tokens_file, slices_tokens_dir)
-    calculate_diffs(slices_tokens_dir, output_dir, name, dates)
-    uci_format(tokens_file_diffs, output_dir, name + "_diffs")
+    calculate_diffs(slices_tokens_dir, output_dir, dates)
+    uci_format(tokens_file_diffs, output_dir, "diffs_dataset")
     print("Finished data preprocessing.")

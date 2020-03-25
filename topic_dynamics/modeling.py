@@ -43,7 +43,7 @@ def create_batches(directory: str, name: str) -> Tuple[artm.BatchVectorizer, art
     print("Creating the batches and the dictionary of the data.")
     batch_vectorizer = artm.BatchVectorizer(
         data_path=directory, data_format="bow_uci", collection_name=name,
-        target_folder=os.path.abspath(os.path.join(directory, name + "_batches")))
+        target_folder=os.path.abspath(os.path.join(directory, "batches")))
     dictionary = batch_vectorizer.dictionary
     return batch_vectorizer, dictionary
 
@@ -96,17 +96,16 @@ def train_model(model: artm.artm_model.ARTM, n_doc_iter: int, n_col_iter: int,
 
 
 @check_output_directory(output_dir="output_dir")
-def save_parameters(model: artm.artm_model.ARTM, output_dir: str, name: str) -> None:
+def save_parameters(model: artm.artm_model.ARTM, output_dir: str) -> None:
     """
     Save the parameters of the model: sparsity phi, sparsity theta, kernel contrast,
     kernel purity, perplexity, and graphs of sparsity phi, sparsity theta, and perplexity.
     When run several times, overwrites the data.
     :param model: the model.
     :param output_dir: the output directory.
-    :param name: name of the processed dataset.
     :return: None.
     """
-    with open(os.path.abspath(os.path.join(output_dir, name + "_parameters.txt")), "w+") as fout:
+    with open(os.path.abspath(os.path.join(output_dir, "parameters.txt")), "w+") as fout:
         fout.write("Sparsity Phi: {0:.3f}".format(
             model.score_tracker["SparsityPhiScore"].last_value) + "\n")
         fout.write("Sparsity Theta: {0:.3f}".format(
@@ -123,7 +122,7 @@ def save_parameters(model: artm.artm_model.ARTM, output_dir: str, name: str) -> 
     plt.xlabel("Iterations count")
     plt.ylabel("Perplexity")
     plt.grid(True)
-    plt.savefig(os.path.abspath(os.path.join(output_dir, name + "_perplexity.png")), dpi=1200)
+    plt.savefig(os.path.abspath(os.path.join(output_dir, "perplexity.png")), dpi=1200)
     plt.close()
 
     plt.plot(range(model.num_phi_updates),
@@ -131,7 +130,7 @@ def save_parameters(model: artm.artm_model.ARTM, output_dir: str, name: str) -> 
     plt.xlabel("Iterations count")
     plt.ylabel("Phi Sparsity")
     plt.grid(True)
-    plt.savefig(os.path.abspath(os.path.join(output_dir, name + "_phi_sparsity.png")), dpi=1200)
+    plt.savefig(os.path.abspath(os.path.join(output_dir, "phi_sparsity.png")), dpi=1200)
     plt.close()
 
     plt.plot(range(model.num_phi_updates),
@@ -139,21 +138,20 @@ def save_parameters(model: artm.artm_model.ARTM, output_dir: str, name: str) -> 
     plt.xlabel("Iterations count")
     plt.ylabel("Theta Sparsity")
     plt.grid(True)
-    plt.savefig(os.path.abspath(os.path.join(output_dir, name + "_theta_sparsity.png")), dpi=1200)
+    plt.savefig(os.path.abspath(os.path.join(output_dir, "theta_sparsity.png")), dpi=1200)
     plt.close()
 
 
 @check_output_directory(output_dir="output_dir")
-def save_most_popular_tokens(model: artm.artm_model.ARTM, output_dir: str, name: str) -> None:
+def save_most_popular_tokens(model: artm.artm_model.ARTM, output_dir: str) -> None:
     """
     Save the most popular tokens of the model.
     When run several times, overwrites the data.
     :param model: the model.
     :param output_dir: the output directory.
-    :param name: name of the processed dataset.
     :return: None.
     """
-    with open(os.path.abspath(os.path.join(output_dir, name + "_most_popular_tokens.txt")),
+    with open(os.path.abspath(os.path.join(output_dir, "most_popular_tokens.txt")),
               "w+") as fout:
         for topic_name in model.topic_names:
             fout.write("{topic_name}: {tokens}\n"
@@ -163,24 +161,23 @@ def save_most_popular_tokens(model: artm.artm_model.ARTM, output_dir: str, name:
 
 
 @check_output_directory(output_dir="output_dir")
-def save_matrices(model: artm.artm_model.ARTM, output_dir: str, name: str) -> None:
+def save_matrices(model: artm.artm_model.ARTM, output_dir: str) -> None:
     """
     Save the Phi and Theta matrices.
     When run several times, overwrites the data.
     :param model: the model.
     :param output_dir: the output directory.
-    :param name: name of the processed dataset.
     :return: Two matrices as DataFrames.
     """
     phi_matrix = model.get_phi().sort_index(axis=0)
-    phi_matrix.to_csv(os.path.abspath(os.path.join(output_dir, name + "_phi.csv")))
+    phi_matrix.to_csv(os.path.abspath(os.path.join(output_dir, "phi.csv")))
     theta_matrix = model.get_theta().sort_index(axis=1)
-    theta_matrix.to_csv(os.path.abspath(os.path.join(output_dir, name + "_theta.csv")))
+    theta_matrix.to_csv(os.path.abspath(os.path.join(output_dir, "theta.csv")))
 
 
 @check_output_directory(output_dir="output_dir")
 def save_most_topical_files(theta_matrix: pd.DataFrame, tokens_file: str,
-                            n_files: int, output_dir: str, name: str) -> None:
+                            n_files: int, output_dir: str) -> None:
     """
     Save the most topical files of the model.
     When run several times, overwrites the data.
@@ -188,7 +185,6 @@ def save_most_topical_files(theta_matrix: pd.DataFrame, tokens_file: str,
     :param tokens_file: the temporary file with tokens.
     :param n_files: number of the most topical files to be saved for each topic.
     :param output_dir: the output directory.
-    :param name: name of the processed dataset.
     :return: None.
     """
     file2path = {}
@@ -196,7 +192,7 @@ def save_most_topical_files(theta_matrix: pd.DataFrame, tokens_file: str,
         for line in fin:
             token_line = parse_token_line(line)
             file2path[int(token_line.index)] = token_line.path
-    with open(os.path.abspath(os.path.join(output_dir, name + "_most_topical_files.txt")),
+    with open(os.path.abspath(os.path.join(output_dir, "most_topical_files.txt")),
               "w+") as fout:
         for i in range(1, theta_matrix.shape[0] + 1):
             fout.write("Topic " + str(i) + "\n\n")
@@ -240,7 +236,7 @@ def get_topics_weight(slices_file: str, theta_file: str) -> np.array:
 def get_normalized_dynamics(topics_weight: np.array) -> Tuple[np.array, List]:
     """
     Transform topics weights into normalized topics weights and a list of dynamics parameters
-    for every topic: its minimal weight, maximal weight, and their ratio.
+    for every topic: its minimal weight, maximal weight, and     :param tokens_file: the temporary file with tokens.their ratio.
     :param topics_weight: numpy array with topic weights.
     :return np.array of normalized weights and a list with dynamics data.
     """
@@ -260,25 +256,24 @@ def get_normalized_dynamics(topics_weight: np.array) -> Tuple[np.array, List]:
 
 
 @check_output_directory(output_dir="output_dir")
-def save_dynamics(slices_file: str, theta_file: str, output_dir: str, name: str) -> None:
+def save_dynamics(slices_file: str, theta_file: str, output_dir: str) -> None:
     """
     Save figures with the dynamics.
     When run several times, overwrites the data.
     :param slices_file: the path to the file with the indices of the slices.
     :param theta_file: the path to the csv file with the theta matrix.
     :param output_dir: the output directory.
-    :param name: name of the processed dataset.
     :return: None.
     """
     topics_weight = get_topics_weight(slices_file, theta_file)
     topics_weight_percent, dynamics = get_normalized_dynamics(topics_weight)
 
-    np.savetxt(os.path.abspath(os.path.join(output_dir, name + "_dynamics.txt")), topics_weight,
+    np.savetxt(os.path.abspath(os.path.join(output_dir, "dynamics.txt")), topics_weight,
                "%10.3f")
-    np.savetxt(os.path.abspath(os.path.join(output_dir, name + "_dynamics_percent.txt")),
+    np.savetxt(os.path.abspath(os.path.join(output_dir, "dynamics_percent.txt")),
                topics_weight_percent, "%10.3f")
 
-    with open(os.path.abspath(os.path.join(output_dir, name + "_dynamics_percent_change.txt")),
+    with open(os.path.abspath(os.path.join(output_dir, "dynamics_percent_change.txt")),
               "w+") as fout:
         for topic in dynamics:
             fout.write(
@@ -289,20 +284,20 @@ def save_dynamics(slices_file: str, theta_file: str, output_dir: str, name: str)
     plt.stackplot(range(1, topics_weight.shape[1] + 1), topics_weight)
     plt.xlabel("Slice")
     plt.ylabel("Proportion (a. u.)")
-    plt.savefig(os.path.abspath(os.path.join(output_dir, name + "_dynamics.png")), dpi=1200)
+    plt.savefig(os.path.abspath(os.path.join(output_dir, "dynamics.png")), dpi=1200)
     plt.close()
 
     for topic in topics_weight.tolist():
         plt.plot(range(1, topics_weight.shape[1] + 1), topic)
     plt.xlabel("Slice")
     plt.ylabel("Proportion (a. u.)")
-    plt.savefig(os.path.abspath(os.path.join(output_dir, name + "_dynamics_topics.png")), dpi=1200)
+    plt.savefig(os.path.abspath(os.path.join(output_dir, "dynamics_topics.png")), dpi=1200)
     plt.close()
 
     plt.stackplot(range(1, topics_weight.shape[1] + 1), topics_weight_percent)
     plt.xlabel("Slice")
     plt.ylabel("Proportion (%)")
-    plt.savefig(os.path.abspath(os.path.join(output_dir, name + "_dynamics_percent.png")),
+    plt.savefig(os.path.abspath(os.path.join(output_dir, "dynamics_percent.png")),
                 dpi=1200)
     plt.close()
 
@@ -310,45 +305,45 @@ def save_dynamics(slices_file: str, theta_file: str, output_dir: str, name: str)
         plt.plot(range(1, topics_weight.shape[1] + 1), topic)
     plt.xlabel("Slice")
     plt.ylabel("Proportion (%)")
-    plt.savefig(os.path.abspath(os.path.join(output_dir, name + "_dynamics_topics_percent.png")),
+    plt.savefig(os.path.abspath(os.path.join(output_dir, "dynamics_topics_percent.png")),
                 dpi=1200)
     plt.close()
 
 
-def save_metadata(model: artm.artm_model.ARTM, output_dir: str, name: str, n_files: int) -> None:
+def save_metadata(model: artm.artm_model.ARTM, output_dir: str, n_files: int,
+                  tokens_file: str, slices_file: str) -> None:
     """
     Save the metadata: the parameters of the model, most popular tokens, the matrices,
     most topical files and various dynamics-related statistics.
     :param model: the model.
     :param output_dir: the output directory.
-    :param name: name of the processed dataset.
     :param n_files: number of the most topical files to be saved for each topic.
+    :param tokens_file: the temporary file with tokens.
+    :param slices_file: the path to the file with the indices of the slices.
     :return: None.
     """
     print("Saving the results.")
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
-    tokens_file = os.path.abspath(os.path.join(output_dir, os.pardir, name + "_tokens.txt"))
-    slices_file = os.path.abspath(os.path.join(output_dir, os.pardir, name + "_slices.txt"))
-    theta_file = os.path.abspath(os.path.join(output_dir, name + "_theta.csv"))
+    theta_file = os.path.abspath(os.path.join(output_dir, "theta.csv"))
     theta_matrix = model.get_theta().sort_index(axis=1)
 
-    save_parameters(model=model, output_dir=output_dir, name=name)
-    save_most_popular_tokens(model=model, output_dir=output_dir, name=name)
-    save_matrices(model=model, output_dir=output_dir, name=name)
+    save_parameters(model=model, output_dir=output_dir)
+    save_most_popular_tokens(model=model, output_dir=output_dir)
+    save_matrices(model=model, output_dir=output_dir)
     save_most_topical_files(theta_matrix=theta_matrix, tokens_file=tokens_file,
-                            n_files=n_files, output_dir=output_dir, name=name)
-    save_dynamics(slices_file=slices_file, theta_file=theta_file, output_dir=output_dir, name=name)
+                            n_files=n_files, output_dir=output_dir)
+    save_dynamics(slices_file=slices_file, theta_file=theta_file, output_dir=output_dir)
 
 
-def model_topics(output_dir: str, name: str, n_topics: int, sparse_theta: float, sparse_phi: float,
-                 decorrelator_phi: float, n_doc_iter: int, n_col_iter: int, n_files: int) -> None:
+def model_topics(output_dir: str, n_topics: int, sparse_theta: float, sparse_phi: float,
+                 decorrelator_phi: float, n_doc_iter: int, n_col_iter: int, n_files: int,
+                 diffs: bool) -> None:
     """
     Take the input, create the batches, train the model with the given parameters,
     and saves all metadata.
     :param output_dir: the output directory.
-    :param name: name of the processed dataset.
     :param n_topics: number of topics.
     :param sparse_theta: sparse theta parameter.
     :param sparse_phi: sparse phi parameter.
@@ -356,11 +351,21 @@ def model_topics(output_dir: str, name: str, n_topics: int, sparse_theta: float,
     :param n_doc_iter: number of document passes.
     :param n_col_iter: number of collection passes.
     :param n_files: number of the most topical files to be saved for each topic.
+    :param diffs: True if the topics are modeled on diffs,
+                  False if they are modeled on full files.
     :return: None.
     """
+    if diffs:
+        name = "diffs_dataset"
+        tokens_file = os.path.abspath(os.path.join(output_dir, "diffs_tokens.txt"))
+        slices_file = os.path.abspath(os.path.join(output_dir, "diffs_slices.txt"))
+    else:
+        name = "dataset"
+        tokens_file = os.path.abspath(os.path.join(output_dir, "tokens.txt"))
+        slices_file = os.path.abspath(os.path.join(output_dir, "slices.txt"))
     batch_vectorizer, dictionary = create_batches(output_dir, name)
     model = define_model(n_topics, dictionary, sparse_theta, sparse_phi, decorrelator_phi)
     train_model(model, n_doc_iter, n_col_iter, dictionary, batch_vectorizer)
     results_dir = os.path.abspath(os.path.join(output_dir, "results"))
-    save_metadata(model, results_dir, name, n_files)
+    save_metadata(model, results_dir, n_files, tokens_file, slices_file)
     print("Topic modeling finished.")
