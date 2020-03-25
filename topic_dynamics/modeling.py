@@ -2,6 +2,7 @@
 Topic modeling related functionality.
 """
 import csv
+from math import log10
 from operator import itemgetter
 import os
 from typing import Any, Callable, List, Tuple
@@ -208,54 +209,114 @@ def save_most_topical_files(theta_matrix: pd.DataFrame, tokens_file: str,
             fout.write("\n")
 
 
-def get_topics_weight(slices_file: str, theta_file: str) -> np.array:
+def get_topics_metrics(slices_file: str, theta_file: str) -> Tuple[np.array, np.array, np.array]:
     """
-    Read the theta file and transform it into topic weights for different slices.
+    Read the theta file and transform it into topic metrics for different slices:
+    assignments and focuses.
     :param slices_file: the path to the file with the indices of the slices.
     :param theta_file: the path tp the csv file with the theta matrix.
-    :return np.array of weights of each topic for each slice.
+    :return np.arrays of assignments and focuses of each topic for each slice.
     """
     date2indices = {}
     with open(slices_file) as fin:
         for line in fin:
             slice_line = parse_slice_line(line)
             date2indices[slice_line.date] = (slice_line.start_index, slice_line.end_index)
-    topics_weight = []
+    assignment = []
+    assignment_normalized = []
+    scatter = []
+    focus = []
     with open(theta_file) as fin:
         reader = csv.reader(fin)
         next(reader, None)  # Skip the headers
         for row in reader:
-            topics_weight.append([])
+            assignment.append([])
+            assignment_normalized.append([])
+            scatter.append([])
+            focus.append([])
             for date in date2indices.keys():
-                topics_weight[-1].append(
-                    sum(float(i) for i in row[date2indices[date][0]:date2indices[date][1] + 1]))
-    topics_weight = np.asarray(topics_weight)
-    return topics_weight
-
-
-def get_normalized_dynamics(topics_weight: np.array) -> Tuple[np.array, List]:
-    """
-    Transform topics weights into normalized topics weights and a list of dynamics parameters
-    for every topic: its minimal weight, maximal weight, and     :param tokens_file: the temporary file with tokens.their ratio.
-    :param topics_weight: numpy array with topic weights.
-    :return np.array of normalized weights and a list with dynamics data.
-    """
-    topics_weight_percent = np.zeros((topics_weight.shape[0], topics_weight.shape[1]))
-    for j in range(topics_weight.shape[1]):
-        slice_sum = np.sum(topics_weight[:, j], keepdims=True)
-        for i in range(topics_weight.shape[0]):
-            topics_weight_percent[i, j] = (topics_weight[i, j] / slice_sum) * 100
-
-    dynamics = []
-    for i in range(topics_weight_percent.shape[0]):
-        dynamics.append(["topic_{}".format(i + 1), min(topics_weight_percent[i]),
-                         max(topics_weight_percent[i]),
-                         max(topics_weight_percent[i]) / min(topics_weight_percent[i])])
-    dynamics = sorted(dynamics, key=itemgetter(3), reverse=True)
-    return topics_weight_percent, dynamics
+                version_row = row[date2indices[date][0]:date2indices[date][1] + 1]
+                assignment[-1].append(sum(float(i) for i in version_row))
+                assignment_normalized[-1].append(100 * assignment[-1][-1] / len(version_row))
+                # scatter[-1].append(sum(-float(i) * log10(float(i)) for i in version_row))
+                # TODO: implement scattering
+                focus[-1].append(100 * sum(1 for i in version_row if float(i) >= 0.5)
+                                 / len(version_row))
+    assignment = np.asarray(assignment)
+    assignment_normalized = np.asarray(assignment_normalized)
+    focus = np.asarray(focus)
+    return assignment, assignment_normalized, focus
 
 
 @check_output_directory(output_dir="output_dir")
+def save_metric(array: np.array, name: str, x_label: str, y_label: str, output_dir: str) -> None:
+    """
+    Saves 2D np.array of a metric (topics vs slices) as a text file and as a stacked plot with a
+    given name and axes labels into a given output directory.
+    :param array: 2D np.array with the necessary information.
+    :param name: name of the files to be saved.
+    :param x_label: x axis label for the stacked plot.
+    :param y_label: y axis label for the stacked plot.
+    :param output_dir: the path to the output directory.
+    :return: None.
+    """
+    np.savetxt(os.path.abspath(os.path.join(output_dir, name + ".txt")), array, "%10.3f")
+    plt.stackplot(range(1, array.shape[1] + 1), array)
+    plt.xlabel(x_label)
+    plt.ylabel(y_label)
+    plt.savefig(os.path.abspath(os.path.join(output_dir, name + ".png")), dpi=600)
+    plt.close()
+
+
+@check_output_directory(output_dir="output_dir")
+def save_metric_change(metric: np.array, output_dir: str, output_file: str) -> None:
+    """
+    Save lists of parameters for the metric of every topic:
+    its minimal value, maximal value, and their ratio.
+    :param metric: numpy array with a given metric.
+    :param output_dir: the path to the output directory.
+    :param output_file: the name of the output file.
+    :return None.
+    """
+    dynamics = []
+    for i in range(metric.shape[0]):
+        dynamics.append(["topic_{}".format(i + 1), min(metric[i]), max(metric[i]),
+                         max(metric[i]) / min(metric[i])])
+    dynamics = sorted(dynamics, key=itemgetter(3), reverse=True)
+    with open(os.path.abspath(os.path.join(output_dir, output_file)), "w+") as fout:
+        for topic in dynamics:
+            fout.write(
+                "{topic_name};{min_assignment:.3f};{max_assignment:.3f};{max_min_ratio:.3f}\n"
+                    .format(topic_name=topic[0], min_assignment=topic[1],
+                            max_assignment=topic[2], max_min_ratio=topic[3]))
+
+
+@check_output_directory("output_dir")
+def save_topic_change(assignment: List[float], assignment_normalized: List[float],
+                      focus: List[float], output_dir: str, output_file: str) -> None:
+    """
+    Create a combined plot of various metrics for a given topic.
+    :param assignment: a list of assignment values in different slices for a given topic.
+    :param assignment_normalized: a list of normalized assignment values in different slices
+           for a given topic.
+    :param focus: a list of focus values in different slices for a given topic.
+    :param output_dir: the path to the output directory.
+    :param output_file: the name of the output file.
+    :return None.
+    """
+    fig, axs = plt.subplots(3)
+    axs[0].plot(range(1, len(assignment) + 1), assignment, "tab:red")
+    axs[0].set_ylabel("Ass. (a. u.)")
+    axs[1].plot(range(1, len(assignment_normalized) + 1), assignment_normalized, "tab:green")
+    axs[1].set_ylabel("Norm. ass. (%)")
+    axs[2].plot(range(1, len(focus) + 1), focus, "tab:blue")
+    axs[2].set_ylabel("Focus (%)")
+    axs[2].set_xlabel("Slice")
+    plt.subplots_adjust(hspace=0.5)
+    plt.savefig(os.path.abspath(os.path.join(output_dir, output_file)), dpi=600)
+    plt.close()
+
+
 def save_dynamics(slices_file: str, theta_file: str, output_dir: str) -> None:
     """
     Save figures with the dynamics.
@@ -265,49 +326,28 @@ def save_dynamics(slices_file: str, theta_file: str, output_dir: str) -> None:
     :param output_dir: the output directory.
     :return: None.
     """
-    topics_weight = get_topics_weight(slices_file, theta_file)
-    topics_weight_percent, dynamics = get_normalized_dynamics(topics_weight)
-
-    np.savetxt(os.path.abspath(os.path.join(output_dir, "dynamics.txt")), topics_weight,
-               "%10.3f")
-    np.savetxt(os.path.abspath(os.path.join(output_dir, "dynamics_percent.txt")),
-               topics_weight_percent, "%10.3f")
-
-    with open(os.path.abspath(os.path.join(output_dir, "dynamics_percent_change.txt")),
-              "w+") as fout:
-        for topic in dynamics:
-            fout.write(
-                "{topic_name};{minimum_weight:.3f};{maximum_weight:.3f};{max_min_ratio:.3f}\n"
-                .format(topic_name=topic[0], minimum_weight=topic[1],
-                        maximum_weight=topic[2], max_min_ratio=topic[3]))
-
-    plt.stackplot(range(1, topics_weight.shape[1] + 1), topics_weight)
-    plt.xlabel("Slice")
-    plt.ylabel("Proportion (a. u.)")
-    plt.savefig(os.path.abspath(os.path.join(output_dir, "dynamics.png")), dpi=600)
-    plt.close()
-
-    for topic in topics_weight.tolist():
-        plt.plot(range(1, topics_weight.shape[1] + 1), topic)
-    plt.xlabel("Slice")
-    plt.ylabel("Proportion (a. u.)")
-    plt.savefig(os.path.abspath(os.path.join(output_dir, "dynamics_topics.png")), dpi=600)
-    plt.close()
-
-    plt.stackplot(range(1, topics_weight.shape[1] + 1), topics_weight_percent)
-    plt.xlabel("Slice")
-    plt.ylabel("Proportion (%)")
-    plt.savefig(os.path.abspath(os.path.join(output_dir, "dynamics_percent.png")),
-                dpi=600)
-    plt.close()
-
-    for topic in topics_weight_percent.tolist():
-        plt.plot(range(1, topics_weight.shape[1] + 1), topic)
-    plt.xlabel("Slice")
-    plt.ylabel("Proportion (%)")
-    plt.savefig(os.path.abspath(os.path.join(output_dir, "dynamics_topics_percent.png")),
-                dpi=600)
-    plt.close()
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    assignment, assignment_normalized, focus = get_topics_metrics(slices_file, theta_file)
+    save_metric(array=assignment, name="assignment", x_label="Slice",
+                y_label="Assignment (a. u.)", output_dir=output_dir)
+    save_metric(array=assignment_normalized, name="assignment_normalized", x_label="Slice",
+                y_label="Normalized assignment (%)", output_dir=output_dir)
+    save_metric(array=focus, name="focus", x_label="Slice", y_label="Focus (%)",
+                output_dir=output_dir)
+    save_metric_change(metric=assignment, output_dir=output_dir,
+                       output_file="assignment_change.txt")
+    save_metric_change(metric=assignment_normalized, output_dir=output_dir,
+                       output_file="assignment_normalized_change.txt")
+    save_metric_change(metric=focus, output_dir=output_dir, output_file="focus_change.txt")
+    assignment_list = assignment.tolist()
+    assignment_normalized_list = assignment_normalized.tolist()
+    focus_list = focus.tolist()
+    for n_topic in range(len(assignment_list)):
+        save_topic_change(assignment=assignment_list[n_topic],
+                          assignment_normalized=assignment_normalized_list[n_topic],
+                          focus=focus_list[n_topic], output_dir=output_dir,
+                          output_file="topic_{}".format(str(n_topic + 1)))
 
 
 def save_metadata(model: artm.artm_model.ARTM, output_dir: str, n_files: int,
@@ -328,13 +368,14 @@ def save_metadata(model: artm.artm_model.ARTM, output_dir: str, n_files: int,
 
     theta_file = os.path.abspath(os.path.join(output_dir, "theta.csv"))
     theta_matrix = model.get_theta().sort_index(axis=1)
+    dynamics_dir = os.path.abspath(os.path.join(output_dir, "dynamics"))
 
     save_parameters(model=model, output_dir=output_dir)
     save_most_popular_tokens(model=model, output_dir=output_dir)
     save_matrices(model=model, output_dir=output_dir)
     save_most_topical_files(theta_matrix=theta_matrix, tokens_file=tokens_file,
                             n_files=n_files, output_dir=output_dir)
-    save_dynamics(slices_file=slices_file, theta_file=theta_file, output_dir=output_dir)
+    save_dynamics(slices_file=slices_file, theta_file=theta_file, output_dir=dynamics_dir)
 
 
 def model_topics(output_dir: str, n_topics: int, sparse_theta: float, sparse_phi: float,
