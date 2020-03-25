@@ -217,9 +217,8 @@ def split_token_file(slices_file: str, tokens_file: str, output_dir: str) -> Non
             date2indices[slice_number] = (slice_line.start_index, slice_line.end_index)
     # Write the tokens of each slice into a separate file, numbered incrementally
     for date in tqdm(date2indices.keys()):
-        with open(tokens_file) as fin, open(os.path.abspath(os.path.join(output_dir,
-                                                                         str(date) + ".txt")),
-                                            "w+") as fout:
+        with open(tokens_file) as fin, \
+             open(os.path.abspath(os.path.join(output_dir, str(date) + ".txt")), "w+") as fout:
             for line in fin:
                 token_line = parse_token_line(line)
                 if (token_line.index >= date2indices[date][0]) and (

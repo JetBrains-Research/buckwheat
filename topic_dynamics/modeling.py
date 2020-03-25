@@ -18,8 +18,8 @@ def check_output_directory(output_dir: str) -> Callable[[Any, str], Any]:
     """
     Check that an argument of the function that represents a directory exists and is a directory.
     :param output_dir: the name of the argument that represents a path to the directory.
-    :return: the decorator that checks that the argument
-    with the given name exists and is a directory.
+    :return: the decorator that checks that the argument with the given name exists and is a
+             directory.
     """
 
     def inner_decorator(fn):
@@ -41,16 +41,15 @@ def create_batches(directory: str, name: str) -> Tuple[artm.BatchVectorizer, art
     :return: BatchVectorizer and Dictionary.
     """
     print("Creating the batches and the dictionary of the data.")
-    batch_vectorizer = artm.BatchVectorizer(data_path=directory, data_format="bow_uci",
-                                            collection_name=name, target_folder=os.path.abspath(
-            os.path.join(directory, name + "_batches")))
+    batch_vectorizer = artm.BatchVectorizer(
+        data_path=directory, data_format="bow_uci", collection_name=name,
+        target_folder=os.path.abspath(os.path.join(directory, name + "_batches")))
     dictionary = batch_vectorizer.dictionary
     return batch_vectorizer, dictionary
 
 
 def define_model(n_topics: int, dictionary: artm.Dictionary, sparse_theta: float,
-                 sparse_phi: float,
-                 decorrelator_phi: float) -> artm.artm_model.ARTM:
+                 sparse_phi: float, decorrelator_phi: float) -> artm.artm_model.ARTM:
     """
     Define the ARTM model.
     :param n_topics: number of topics.
