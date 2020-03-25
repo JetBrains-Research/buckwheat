@@ -1,0 +1,9 @@
+language: python
+python:
+  - "3.6"
+install:
+  - pip3 install -r requirements.txt
+script:
+  # Unit tests
+  - python3 -m topic_dynamics.parsers
+  - python3 -m unittest discover topic_dynamics/tests -t .
