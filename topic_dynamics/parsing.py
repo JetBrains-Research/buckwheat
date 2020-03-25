@@ -14,6 +14,7 @@ import tree_sitter
 
 from .parsers.utils import get_parser
 from .slicing import get_dates, checkout_by_date
+from .subtokenizing import TokenParser
 
 NODE_TYPES = {"c": ["identifier", "type_identifier"],
               "c-sharp": ["identifier", "type_identifier"],
@@ -112,9 +113,10 @@ def get_identifiers(file: str, lang: str) -> List[Tuple[str, int]]:
         for child in node.children:
             if child.type in NODE_TYPES[lang]:
                 start, end = get_positional_bytes(child)
-                identifier = content[start:end].decode("utf-8").lower()
+                identifier = content[start:end].decode("utf-8")
                 if "\n" not in identifier:  # Will break output files. TODO: try to recreate bug.
-                    identifiers.append(identifier)
+                    subtokens = list(TokenParser().process_token(identifier))
+                    identifiers.extend(subtokens)
             if len(child.children) != 0:
                 traverse_tree(child)
 
