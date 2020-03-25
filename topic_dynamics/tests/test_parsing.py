@@ -1,7 +1,6 @@
 """
 Parsing-related tests.
 """
-
 import os
 import unittest
 
