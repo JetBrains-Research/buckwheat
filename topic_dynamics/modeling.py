@@ -122,7 +122,7 @@ def save_parameters(model: artm.artm_model.ARTM, output_dir: str) -> None:
     plt.xlabel("Iterations count")
     plt.ylabel("Perplexity")
     plt.grid(True)
-    plt.savefig(os.path.abspath(os.path.join(output_dir, "perplexity.png")), dpi=1200)
+    plt.savefig(os.path.abspath(os.path.join(output_dir, "perplexity.png")), dpi=600)
     plt.close()
 
     plt.plot(range(model.num_phi_updates),
@@ -130,7 +130,7 @@ def save_parameters(model: artm.artm_model.ARTM, output_dir: str) -> None:
     plt.xlabel("Iterations count")
     plt.ylabel("Phi Sparsity")
     plt.grid(True)
-    plt.savefig(os.path.abspath(os.path.join(output_dir, "phi_sparsity.png")), dpi=1200)
+    plt.savefig(os.path.abspath(os.path.join(output_dir, "phi_sparsity.png")), dpi=600)
     plt.close()
 
     plt.plot(range(model.num_phi_updates),
@@ -138,7 +138,7 @@ def save_parameters(model: artm.artm_model.ARTM, output_dir: str) -> None:
     plt.xlabel("Iterations count")
     plt.ylabel("Theta Sparsity")
     plt.grid(True)
-    plt.savefig(os.path.abspath(os.path.join(output_dir, "theta_sparsity.png")), dpi=1200)
+    plt.savefig(os.path.abspath(os.path.join(output_dir, "theta_sparsity.png")), dpi=600)
     plt.close()
 
 
@@ -284,21 +284,21 @@ def save_dynamics(slices_file: str, theta_file: str, output_dir: str) -> None:
     plt.stackplot(range(1, topics_weight.shape[1] + 1), topics_weight)
     plt.xlabel("Slice")
     plt.ylabel("Proportion (a. u.)")
-    plt.savefig(os.path.abspath(os.path.join(output_dir, "dynamics.png")), dpi=1200)
+    plt.savefig(os.path.abspath(os.path.join(output_dir, "dynamics.png")), dpi=600)
     plt.close()
 
     for topic in topics_weight.tolist():
         plt.plot(range(1, topics_weight.shape[1] + 1), topic)
     plt.xlabel("Slice")
     plt.ylabel("Proportion (a. u.)")
-    plt.savefig(os.path.abspath(os.path.join(output_dir, "dynamics_topics.png")), dpi=1200)
+    plt.savefig(os.path.abspath(os.path.join(output_dir, "dynamics_topics.png")), dpi=600)
     plt.close()
 
     plt.stackplot(range(1, topics_weight.shape[1] + 1), topics_weight_percent)
     plt.xlabel("Slice")
     plt.ylabel("Proportion (%)")
     plt.savefig(os.path.abspath(os.path.join(output_dir, "dynamics_percent.png")),
-                dpi=1200)
+                dpi=600)
     plt.close()
 
     for topic in topics_weight_percent.tolist():
@@ -306,7 +306,7 @@ def save_dynamics(slices_file: str, theta_file: str, output_dir: str) -> None:
     plt.xlabel("Slice")
     plt.ylabel("Proportion (%)")
     plt.savefig(os.path.abspath(os.path.join(output_dir, "dynamics_topics_percent.png")),
-                dpi=1200)
+                dpi=600)
     plt.close()
 
 
