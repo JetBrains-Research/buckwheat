@@ -67,6 +67,12 @@ def cmdline(command: str) -> str:
 
 
 def recognize_languages(directory: str) -> dict:
+    """
+    Recognize the languages in the directory using Enry and return a dictionary
+    {langauge1: [files], language2: [files], ...}.
+    :param directory: the path to the directory.
+    :return: dictionary {langauge1: [files], language2: [files], ...}
+    """
     return json.loads(cmdline("{enry_loc} -json -mode files {directory}"
                       .format(enry_loc=get_enry(), directory=directory)))
 
