@@ -3,6 +3,7 @@ Script for running the entire pipeline from the command line
 """
 import argparse
 
+from .language_recognition.utils import main as initialize_enry
 from .modeling import model_topics
 from .parsers.utils import main as initialize_parser
 from .parsing import slice_and_parse_full_files, slice_and_parse_diffs
@@ -14,10 +15,11 @@ def main(args: argparse.Namespace) -> None:
     :return: None.
     """
     initialize_parser()
+    initialize_enry()
     if args.mode == "diffs":
         slice_and_parse_diffs(repository=args.input, output_dir=args.output,
                               n_dates=int(args.slices), day_delta=int(args.days),
-                              lang=args.language, start_date=args.start_date)
+                              start_date=args.start_date)
         model_topics(output_dir=args.output, n_topics=int(args.topics),
                      sparse_theta=float(args.sparse_theta), sparse_phi=float(args.sparse_phi),
                      decorrelator_phi=float(args.decorrelator_phi),
@@ -26,7 +28,7 @@ def main(args: argparse.Namespace) -> None:
     elif args.mode == "files":
         slice_and_parse_full_files(repository=args.input, output_dir=args.output,
                                    n_dates=int(args.slices), day_delta=int(args.days),
-                                   lang=args.language, start_date=args.start_date)
+                                   start_date=args.start_date)
         model_topics(output_dir=args.output,  n_topics=int(args.topics),
                      sparse_theta=float(args.sparse_theta), sparse_phi=float(args.sparse_phi),
                      decorrelator_phi=float(args.decorrelator_phi),
@@ -48,8 +50,6 @@ if __name__ == "__main__":
     parser.add_argument("-start", "--start_date", default=None,
                         help="The starting (latest) date of the slicing, in the format YYYY-MM-DD,"
                              " the default value is the moment of calling.")
-    parser.add_argument("-l", "--language", required=True,
-                        help="Language of parsing. To be deprecated.")
     parser.add_argument("-t", "--topics", default=45,
                         help="Number of topics in model. Default number is 45.")
     parser.add_argument("-st", "--sparse_theta", default=-0.15,

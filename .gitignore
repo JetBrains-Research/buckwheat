@@ -1,2 +1,4 @@
-topic_dynamics/tree_sitter/build/*
-!topic_dynamics/tree_sitter/build/.gitkeep
+topic_dynamics/parsers/build/*
+!topic_dynamics/parsers/build/.gitkeep
+topic_dynamics/language_recognition/build/*
+!topic_dynamics/language_recognition/build/.gitkeep

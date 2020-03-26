@@ -6,4 +6,5 @@ install:
 script:
   # Unit tests
   - python3 -m topic_dynamics.parsers
+  - python3 -m topic_dynamics.language_recognition
   - python3 -m unittest discover topic_dynamics/tests -t .

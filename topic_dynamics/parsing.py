@@ -3,18 +3,24 @@ Parsing-related functionality.
 """
 from collections import Counter
 import datetime
+import json
 from operator import itemgetter
 import os
-from pathlib import Path
+from subprocess import PIPE, Popen
 from tempfile import TemporaryDirectory
 from typing import Any, List, NamedTuple, Tuple
 
 from tqdm import tqdm
 import tree_sitter
 
+from .language_recognition.utils import get_enry
 from .parsers.utils import get_parser
 from .slicing import get_dates, checkout_by_date
 from .subtokenizing import TokenParser
+
+SUPPORTED_LANGUAGES = {"Java": "java",
+                       "Python": "python",
+                       "C++": "cpp"}
 
 NODE_TYPES = {"c": ["identifier", "type_identifier"],
               "c-sharp": ["identifier", "type_identifier"],
@@ -46,29 +52,23 @@ def parse_token_line(token_line: str) -> TokenLine:
     return TokenLine(int(line_list[0]), line_list[1], line_list[2])
 
 
-def get_extensions(lang: str) -> str:
+def cmdline(command: str) -> str:
     """
-    Returns the extension for a given language. TODO: get rid of this and add enry.
-    :param lang: language name.
-    :return: the extension.
+    Execute a given command and catch its stdout.
+    :param command: a command to execute.
+    :return: stdout.
     """
-    extensions = {"cpp": "cpp",
-                  "java": "java",
-                  "python": "py"}
-    return extensions[lang]
+    process = Popen(
+        args=command,
+        stdout=PIPE,
+        shell=True
+    )
+    return process.communicate()[0].decode("utf8")
 
 
-def get_files(directory: str, extension: str) -> List[str]:
-    """
-    Get a list of files with a given extension.
-    :param directory: path to directory.
-    :param extension: extension for file filtering -
-    only files with this extension will be preserved.
-    :return: list of file paths.
-    """
-    dir_path = Path(directory)
-    files = [str(path) for path in sorted(dir_path.rglob("*." + extension))]
-    return files
+def recognize_languages(directory: str) -> dict:
+    return json.loads(cmdline("{enry_loc} -json -mode files {directory}"
+                      .format(enry_loc=get_enry(), directory=directory)))
 
 
 def read_file(file: str) -> bytes:
@@ -141,8 +141,7 @@ def transform_identifiers(identifiers: List[Tuple[str, int]]) -> List[str]:
     return formatted_identifiers
 
 
-def slice_and_parse(repository: str, output_dir: str, dates: List[datetime.datetime],
-                    lang: str) -> None:
+def slice_and_parse(repository: str, output_dir: str, dates: List[datetime.datetime]) -> None:
     """
     Split the repository, parse the full files, write the data into a file.
     Can be called for parsing full files and for parsing diffs only.
@@ -150,7 +149,6 @@ def slice_and_parse(repository: str, output_dir: str, dates: List[datetime.datet
     :param repository: path to the repository to process.
     :param output_dir: path to the output directory.
     :param dates: a list of dates used for slicing.
-    :param lang: programming language to use.
     :return: None.
     """
     print("Creating the temporal slices of the data.")
@@ -167,22 +165,26 @@ def slice_and_parse(repository: str, output_dir: str, dates: List[datetime.datet
             with TemporaryDirectory() as td:
                 subdirectory = os.path.abspath(os.path.join(td, date.strftime("%Y-%m-%d")))
                 checkout_by_date(repository, subdirectory, date)
-                files = get_files(subdirectory, get_extensions(lang))
+                lang2files = recognize_languages(td)
                 start_index = count + 1
-                for file in files:
-                    if os.path.isfile(file):  # TODO: implement a better file-checking mechanism
-                        try:
-                            identifiers = get_identifiers(file, lang)
-                            if len(identifiers) != 0:
-                                count += 1
-                                formatted_identifiers = transform_identifiers(identifiers)
-                                fout.write("{file_index};{file_path};{tokens}\n"
-                                           .format(file_index=str(count),
-                                                   file_path=os.path.relpath(file, os.path.abspath(
-                                                       os.path.join(output_dir, td))),
-                                                   tokens=",".join(formatted_identifiers)))
-                        except UnicodeDecodeError:
-                            continue
+                for lang in lang2files.keys():
+                    if lang in SUPPORTED_LANGUAGES.keys():
+                        for file in lang2files[lang]:
+                            try:
+                                identifiers = get_identifiers(
+                                    os.path.abspath(os.path.join(td, file)),
+                                    SUPPORTED_LANGUAGES[lang])
+                                if len(identifiers) != 0:
+                                    count += 1
+                                    formatted_identifiers = transform_identifiers(identifiers)
+                                    fout.write("{file_index};{file_path};{tokens}\n"
+                                               .format(file_index=str(count),
+                                                       file_path=os.path.relpath(
+                                                           os.path.abspath(os.path.join(td, file)),
+                                                           td),
+                                                       tokens=",".join(formatted_identifiers)))
+                            except UnicodeDecodeError:
+                                continue
                 end_index = count
                 dates_indices[date.strftime("%Y-%m-%d")] = (start_index, end_index)
     # Write the index boundaries of slices into a separate log file
@@ -219,7 +221,7 @@ def split_token_file(slices_file: str, tokens_file: str, output_dir: str) -> Non
     # Write the tokens of each slice into a separate file, numbered incrementally
     for date in tqdm(date2indices.keys()):
         with open(tokens_file) as fin, \
-             open(os.path.abspath(os.path.join(output_dir, str(date) + ".txt")), "w+") as fout:
+                open(os.path.abspath(os.path.join(output_dir, str(date) + ".txt")), "w+") as fout:
             for line in fin:
                 token_line = parse_token_line(line)
                 if (token_line.index >= date2indices[date][0]) and (
@@ -394,7 +396,7 @@ def uci_format(tokens_file: str, output_dir: str, name: str) -> None:
 
 
 def slice_and_parse_full_files(repository: str, output_dir: str, n_dates: int,
-                               day_delta: int, lang: str, start_date: str = None) -> None:
+                               day_delta: int, start_date: str = None) -> None:
     """
     Split the repository, parse the full files, write the data into a file,
     transform into the UCI format.
@@ -404,18 +406,17 @@ def slice_and_parse_full_files(repository: str, output_dir: str, n_dates: int,
     :param day_delta: the number of days between dates.
     :param start_date: the starting (latest) date of the slicing, in the format YYYY-MM-DD,
     the default value is the moment of calling.
-    :param lang: programming language to use.
     :return: None.
     """
     dates = get_dates(n_dates, day_delta, start_date)
     tokens_file = os.path.abspath(os.path.join(output_dir, "tokens.txt"))
-    slice_and_parse(repository, output_dir, dates, lang)
+    slice_and_parse(repository, output_dir, dates)
     uci_format(tokens_file, output_dir, "dataset")
     print("Finished data preprocessing.")
 
 
 def slice_and_parse_diffs(repository: str, output_dir: str, n_dates: int,
-                          day_delta: int, lang: str, start_date: str = None) -> None:
+                          day_delta: int, start_date: str = None) -> None:
     """
     Split the repository, parse the full files, extract the diffs,
     write the data into a file, transform into the UCI format.
@@ -425,7 +426,6 @@ def slice_and_parse_diffs(repository: str, output_dir: str, n_dates: int,
     :param day_delta: the number of days between dates.
     :param start_date: the starting (latest) date of the slicing, in the format YYYY-MM-DD,
     the default value is the moment of calling.
-    :param lang: programming language to use.
     :return: None.
     """
     dates = get_dates(n_dates, day_delta, start_date)
@@ -434,7 +434,7 @@ def slice_and_parse_diffs(repository: str, output_dir: str, n_dates: int,
     slices_tokens_dir = os.path.abspath(os.path.join(output_dir, "slices_tokens"))
     tokens_file_diffs = os.path.abspath(os.path.join(output_dir, "diffs_tokens.txt"))
 
-    slice_and_parse(repository, output_dir, dates, lang)
+    slice_and_parse(repository, output_dir, dates)
     split_token_file(slices_file, tokens_file, slices_tokens_dir)
     calculate_diffs(slices_tokens_dir, output_dir, dates)
     uci_format(tokens_file_diffs, output_dir, "diffs_dataset")
