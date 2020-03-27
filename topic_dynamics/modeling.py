@@ -2,7 +2,6 @@
 Topic modeling related functionality.
 """
 import csv
-from math import log10
 from operator import itemgetter
 import os
 from typing import Any, Callable, List, Tuple
@@ -11,6 +10,7 @@ import artm
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from scipy.stats import entropy
 
 from .parsing import parse_slice_line, parse_token_line
 
@@ -106,7 +106,7 @@ def save_parameters(model: artm.artm_model.ARTM, output_dir: str) -> None:
     :param output_dir: the output directory.
     :return: None.
     """
-    with open(os.path.abspath(os.path.join(output_dir, "parameters.txt")), "w+") as fout:
+    with open(os.path.abspath(os.path.join(output_dir, "metrics.txt")), "w+") as fout:
         fout.write("Sparsity Phi: {0:.3f}".format(
             model.score_tracker["SparsityPhiScore"].last_value) + "\n")
         fout.write("Sparsity Theta: {0:.3f}".format(
@@ -119,27 +119,30 @@ def save_parameters(model: artm.artm_model.ARTM, output_dir: str) -> None:
             model.score_tracker["PerplexityScore"].last_value) + "\n")
 
     plt.plot(range(model.num_phi_updates),
-             model.score_tracker["PerplexityScore"].value, "r--", linewidth=2)
+             model.score_tracker["PerplexityScore"].value, linewidth=2)
     plt.xlabel("Iterations count")
     plt.ylabel("Perplexity")
     plt.grid(True)
-    plt.savefig(os.path.abspath(os.path.join(output_dir, "perplexity.png")), dpi=600)
+    plt.savefig(os.path.abspath(os.path.join(output_dir, "perplexity.png")), dpi=600,
+                bbox_inches="tight")
     plt.close()
 
     plt.plot(range(model.num_phi_updates),
-             model.score_tracker["SparsityPhiScore"].value, "r--", linewidth=2)
+             model.score_tracker["SparsityPhiScore"].value, linewidth=2)
     plt.xlabel("Iterations count")
     plt.ylabel("Phi Sparsity")
     plt.grid(True)
-    plt.savefig(os.path.abspath(os.path.join(output_dir, "phi_sparsity.png")), dpi=600)
+    plt.savefig(os.path.abspath(os.path.join(output_dir, "phi_sparsity.png")), dpi=600,
+                bbox_inches="tight")
     plt.close()
 
     plt.plot(range(model.num_phi_updates),
-             model.score_tracker["SparsityThetaScore"].value, "r--", linewidth=2)
+             model.score_tracker["SparsityThetaScore"].value, linewidth=2)
     plt.xlabel("Iterations count")
     plt.ylabel("Theta Sparsity")
     plt.grid(True)
-    plt.savefig(os.path.abspath(os.path.join(output_dir, "theta_sparsity.png")), dpi=600)
+    plt.savefig(os.path.abspath(os.path.join(output_dir, "theta_sparsity.png")), dpi=600,
+                bbox_inches="tight")
     plt.close()
 
 
@@ -209,7 +212,8 @@ def save_most_topical_files(theta_matrix: pd.DataFrame, tokens_file: str,
             fout.write("\n")
 
 
-def get_topics_metrics(slices_file: str, theta_file: str) -> Tuple[np.array, np.array, np.array]:
+def get_topics_metrics(slices_file: str, theta_file: str) -> Tuple[np.array, np.array,
+                                                                   np.array, np.array]:
     """
     Read the theta file and transform it into topic metrics for different slices:
     assignments and focuses.
@@ -224,7 +228,7 @@ def get_topics_metrics(slices_file: str, theta_file: str) -> Tuple[np.array, np.
             date2indices[slice_line.date] = (slice_line.start_index, slice_line.end_index)
     assignment = []
     assignment_normalized = []
-    scatter = []
+    scattering = []
     focus = []
     with open(theta_file) as fin:
         reader = csv.reader(fin)
@@ -232,20 +236,20 @@ def get_topics_metrics(slices_file: str, theta_file: str) -> Tuple[np.array, np.
         for row in reader:
             assignment.append([])
             assignment_normalized.append([])
-            scatter.append([])
+            scattering.append([])
             focus.append([])
             for date in date2indices.keys():
-                version_row = row[date2indices[date][0]:date2indices[date][1] + 1]
-                assignment[-1].append(sum(float(i) for i in version_row))
+                version_row = [float(i) for i in row[date2indices[date][0]:
+                                                     date2indices[date][1] + 1]]
+                assignment[-1].append(sum(version_row))
                 assignment_normalized[-1].append(100 * assignment[-1][-1] / len(version_row))
-                # scatter[-1].append(sum(-float(i) * log10(float(i)) for i in version_row))
-                # TODO: implement scattering
-                focus[-1].append(100 * sum(1 for i in version_row if float(i) >= 0.5)
-                                 / len(version_row))
+                scattering[-1].append(entropy(version_row))
+                focus[-1].append(100 * sum(1 for i in version_row if i >= 0.5) / len(version_row))
     assignment = np.asarray(assignment)
     assignment_normalized = np.asarray(assignment_normalized)
+    scattering = np.asarray(scattering)
     focus = np.asarray(focus)
-    return assignment, assignment_normalized, focus
+    return assignment, assignment_normalized, scattering, focus
 
 
 @check_output_directory(output_dir="output_dir")
@@ -264,7 +268,8 @@ def save_metric(array: np.array, name: str, x_label: str, y_label: str, output_d
     plt.stackplot(range(1, array.shape[1] + 1), array)
     plt.xlabel(x_label)
     plt.ylabel(y_label)
-    plt.savefig(os.path.abspath(os.path.join(output_dir, name + ".png")), dpi=600)
+    plt.savefig(os.path.abspath(os.path.join(output_dir, name + ".png")), dpi=600,
+                bbox_inches="tight")
     plt.close()
 
 
@@ -292,29 +297,42 @@ def save_metric_change(metric: np.array, output_dir: str, output_file: str) -> N
 
 
 @check_output_directory("output_dir")
-def save_topic_change(assignment: List[float], assignment_normalized: List[float],
-                      focus: List[float], output_dir: str, output_file: str) -> None:
+def save_topics_change(assignment: np.array, assignment_normalized: np.array,
+                       scattering: np.array, focus: np.array, output_dir: str) -> None:
     """
-    Create a combined plot of various metrics for a given topic.
-    :param assignment: a list of assignment values in different slices for a given topic.
-    :param assignment_normalized: a list of normalized assignment values in different slices
+    Create a combined plot of various metrics for every topic and save them to the given directory.
+    :param assignment: numpy array with assignment values in different slices for a given topic.
+    :param assignment_normalized: numpy array with normalized assignment values in different slices
            for a given topic.
-    :param focus: a list of focus values in different slices for a given topic.
+    :param scattering: numpy array with scattering values in different slices for a given topic.
+    :param focus: numpy array with focus values in different slices for a given topic.
     :param output_dir: the path to the output directory.
-    :param output_file: the name of the output file.
     :return None.
     """
-    fig, axs = plt.subplots(3)
-    axs[0].plot(range(1, len(assignment) + 1), assignment, "tab:red")
-    axs[0].set_ylabel("Ass. (a. u.)")
-    axs[1].plot(range(1, len(assignment_normalized) + 1), assignment_normalized, "tab:green")
-    axs[1].set_ylabel("Norm. ass. (%)")
-    axs[2].plot(range(1, len(focus) + 1), focus, "tab:blue")
-    axs[2].set_ylabel("Focus (%)")
-    axs[2].set_xlabel("Slice")
-    plt.subplots_adjust(hspace=0.5)
-    plt.savefig(os.path.abspath(os.path.join(output_dir, output_file)), dpi=600)
-    plt.close()
+    for topic_number in range(assignment.shape[0]):
+        fig, axs = plt.subplots(4, figsize=([5, 10]))
+        axs[0].set_title("Topic {topic_number}".format(topic_number=topic_number + 1))
+        axs[0].plot(range(1, assignment.shape[1] + 1), assignment[topic_number], "tab:red")
+        axs[0].set_ylabel("Assignment (a. u.)")
+        axs[0].grid(b=True)
+        axs[1].plot(range(1, assignment_normalized.shape[1] + 1),
+                    assignment_normalized[topic_number], "tab:green")
+        axs[1].set_ylabel("Normalized assignment (%)")
+        axs[1].grid(b=True)
+        axs[2].plot(range(1, scattering.shape[1] + 1), scattering[topic_number], "tab:blue")
+        axs[2].set_ylabel("Scattering (a. u.)")
+        axs[2].grid(b=True)
+        axs[3].plot(range(1, focus.shape[1] + 1), focus[topic_number], "tab:purple")
+        axs[3].set_ylabel("Focus (%)")
+        axs[3].grid(b=True)
+        axs[3].set_xlabel("Slice")
+        fig.align_ylabels(axs)
+        plt.subplots_adjust(hspace=0.5)
+        plt.savefig(os.path.abspath(os.path.join(output_dir,
+                                                 "topic_{topic_number}.png"
+                                                 .format(topic_number=topic_number + 1))),
+                    dpi=600, bbox_inches="tight")
+        plt.close()
 
 
 def save_dynamics(slices_file: str, theta_file: str, output_dir: str) -> None:
@@ -328,26 +346,25 @@ def save_dynamics(slices_file: str, theta_file: str, output_dir: str) -> None:
     """
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
-    assignment, assignment_normalized, focus = get_topics_metrics(slices_file, theta_file)
+    assignment, assignment_normalized, scattering, focus = get_topics_metrics(slices_file,
+                                                                              theta_file)
     save_metric(array=assignment, name="assignment", x_label="Slice",
                 y_label="Assignment (a. u.)", output_dir=output_dir)
     save_metric(array=assignment_normalized, name="assignment_normalized", x_label="Slice",
                 y_label="Normalized assignment (%)", output_dir=output_dir)
+    save_metric(array=scattering, name="scattering", x_label="Slice", y_label="Scatter (a. u.)",
+                output_dir=output_dir)
     save_metric(array=focus, name="focus", x_label="Slice", y_label="Focus (%)",
                 output_dir=output_dir)
     save_metric_change(metric=assignment, output_dir=output_dir,
                        output_file="assignment_change.txt")
     save_metric_change(metric=assignment_normalized, output_dir=output_dir,
                        output_file="assignment_normalized_change.txt")
+    save_metric_change(metric=scattering, output_dir=output_dir,
+                       output_file="scattering_change.txt")
     save_metric_change(metric=focus, output_dir=output_dir, output_file="focus_change.txt")
-    assignment_list = assignment.tolist()
-    assignment_normalized_list = assignment_normalized.tolist()
-    focus_list = focus.tolist()
-    for n_topic in range(len(assignment_list)):
-        save_topic_change(assignment=assignment_list[n_topic],
-                          assignment_normalized=assignment_normalized_list[n_topic],
-                          focus=focus_list[n_topic], output_dir=output_dir,
-                          output_file="topic_{}".format(str(n_topic + 1)))
+    save_topics_change(assignment=assignment, assignment_normalized=assignment_normalized,
+                       scattering=scattering, focus=focus, output_dir=output_dir)
 
 
 def save_metadata(model: artm.artm_model.ARTM, output_dir: str, n_files: int,
