@@ -3,6 +3,7 @@ The functionality of the temporal slicing of projects.
 """
 import datetime
 import os
+from subprocess import PIPE, Popen
 from typing import List
 
 
@@ -28,6 +29,20 @@ def get_dates(n_dates: int, day_delta: int, start_date: str = None) -> List[date
     return dates
 
 
+def cmdline(command: str) -> str:
+    """
+    Execute a given command and catch its stdout.
+    :param command: a command to execute.
+    :return: stdout.
+    """
+    process = Popen(
+        args=command,
+        stdout=PIPE,
+        shell=True
+    )
+    return process.communicate()[0].decode("utf8")
+
+
 def checkout_by_date(repository: str, directory: str, before_date: datetime.datetime) -> None:
     """
     Checkout a given repository into a folder for a given date and time.
@@ -36,8 +51,9 @@ def checkout_by_date(repository: str, directory: str, before_date: datetime.date
     :param before_date: last commit before this date will be used for checkout.
     :return: None.
     """
+    branch = cmdline("cd {repository}; git rev-parse --abbrev-ref HEAD"
+                     .format(repository=repository))
     os.system("cp -r {repository} {directory}".format(repository=repository, directory=directory))
     os.system('cd {directory}; '
-              'git checkout --quiet `git rev-list -n 1 --before="{date}" master` > /dev/null'
-              .format(directory=directory, date=before_date.strftime("%Y-%m-%d")))
-    # TODO: consider non-master branches
+              'git checkout --quiet `git rev-list -n 1 --before="{date}" {branch}` > /dev/null'
+              .format(directory=directory, date=before_date.strftime("%Y-%m-%d"), branch=branch))

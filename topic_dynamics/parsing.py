@@ -6,7 +6,6 @@ import datetime
 import json
 from operator import itemgetter
 import os
-from subprocess import PIPE, Popen
 from tempfile import TemporaryDirectory
 from typing import Any, List, NamedTuple, Tuple
 
@@ -15,7 +14,7 @@ import tree_sitter
 
 from .language_recognition.utils import get_enry
 from .parsers.utils import get_parser
-from .slicing import get_dates, checkout_by_date
+from .slicing import checkout_by_date, cmdline, get_dates
 from .subtokenizing import TokenParser
 
 SUPPORTED_LANGUAGES = {"Java": "java",
@@ -50,20 +49,6 @@ def parse_token_line(token_line: str) -> TokenLine:
     """
     line_list = token_line.rstrip().split(";")
     return TokenLine(int(line_list[0]), line_list[1], line_list[2])
-
-
-def cmdline(command: str) -> str:
-    """
-    Execute a given command and catch its stdout.
-    :param command: a command to execute.
-    :return: stdout.
-    """
-    process = Popen(
-        args=command,
-        stdout=PIPE,
-        shell=True
-    )
-    return process.communicate()[0].decode("utf8")
 
 
 def recognize_languages(directory: str) -> dict:
@@ -147,18 +132,23 @@ def transform_identifiers(identifiers: List[Tuple[str, int]]) -> List[str]:
     return formatted_identifiers
 
 
-def slice_and_parse(repository: str, output_dir: str, dates: List[datetime.datetime]) -> None:
+def slice_and_parse(repositories_file: str, output_dir: str, dates: List[datetime.datetime]) -> None:
     """
     Split the repository, parse the full files, write the data into a file.
     Can be called for parsing full files and for parsing diffs only.
     When run several times, overwrites the data.
-    :param repository: path to the repository to process.
+    :param repositories_file: path to text file with a list of repositories to parse.
     :param output_dir: path to the output directory.
     :param dates: a list of dates used for slicing.
     :return: None.
     """
     print("Creating the temporal slices of the data.")
-    assert os.path.exists(os.path.abspath(os.path.join(repository, ".git")))
+    assert os.path.exists(repositories_file)
+    repositories_list = []
+    with open(repositories_file) as fin:
+        for line in fin:
+            repositories_list.append(line.rstrip())
+            assert os.path.exists(os.path.abspath(os.path.join(repositories_list[-1], ".git")))
     # Create a folder for created files
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
@@ -168,31 +158,32 @@ def slice_and_parse(repository: str, output_dir: str, dates: List[datetime.datet
     # parse all files, save the tokens
     with open(os.path.abspath(os.path.join(output_dir, "tokens.txt")), "w+") as fout:
         for date in tqdm(dates):
-            with TemporaryDirectory() as td:
-                subdirectory = os.path.abspath(os.path.join(td, date.strftime("%Y-%m-%d")))
-                checkout_by_date(repository, subdirectory, date)
-                lang2files = recognize_languages(td)
-                start_index = count + 1
-                for lang in lang2files.keys():
-                    if lang in SUPPORTED_LANGUAGES.keys():
-                        for file in lang2files[lang]:
-                            try:
-                                identifiers = get_identifiers(
-                                    os.path.abspath(os.path.join(td, file)),
-                                    SUPPORTED_LANGUAGES[lang])
-                                if len(identifiers) != 0:
-                                    count += 1
-                                    formatted_identifiers = transform_identifiers(identifiers)
-                                    fout.write("{file_index};{file_path};{tokens}\n"
-                                               .format(file_index=str(count),
-                                                       file_path=os.path.relpath(
-                                                           os.path.abspath(os.path.join(td, file)),
-                                                           td),
-                                                       tokens=",".join(formatted_identifiers)))
-                            except UnicodeDecodeError:
-                                continue
-                end_index = count
-                dates_indices[date.strftime("%Y-%m-%d")] = (start_index, end_index)
+            start_index = count + 1
+            for repository in repositories_list:
+                with TemporaryDirectory() as td:
+                    subdirectory = os.path.abspath(os.path.join(td, date.strftime("%Y-%m-%d")))
+                    checkout_by_date(repository, subdirectory, date)
+                    lang2files = recognize_languages(td)
+                    for lang in lang2files.keys():
+                        if lang in SUPPORTED_LANGUAGES.keys():
+                            for file in lang2files[lang]:
+                                try:
+                                    identifiers = get_identifiers(
+                                        os.path.abspath(os.path.join(td, file)),
+                                        SUPPORTED_LANGUAGES[lang])
+                                    if len(identifiers) != 0:
+                                        count += 1
+                                        formatted_identifiers = transform_identifiers(identifiers)
+                                        fout.write("{file_index};{file_path};{tokens}\n"
+                                                   .format(file_index=str(count),
+                                                           file_path=repository + os.path.relpath(
+                                                               os.path.abspath(
+                                                                   os.path.join(td, file)), td),
+                                                           tokens=",".join(formatted_identifiers)))
+                                except UnicodeDecodeError:
+                                    continue
+            end_index = count
+            dates_indices[date.strftime("%Y-%m-%d")] = (start_index, end_index)
     # Write the index boundaries of slices into a separate log file
     print("Writing the index boundaries of slices into an auxiliary file.")
     with open(os.path.abspath(os.path.join(output_dir, "slices.txt")), "w+") as fout:

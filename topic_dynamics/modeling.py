@@ -4,7 +4,7 @@ Topic modeling related functionality.
 import csv
 from operator import itemgetter
 import os
-from typing import Any, Callable, List, Tuple
+from typing import Any, Callable, Tuple
 
 import artm
 import matplotlib.pyplot as plt
