@@ -43,6 +43,18 @@ def cmdline(command: str) -> str:
     return process.communicate()[0].decode("utf8")
 
 
+def get_date_of_first_commit(repository: str) -> datetime.datetime:
+    """
+    Return the datetime object of the date of the first commit of a given git repository.
+    :param repository: path to git repository.
+    :return: a datetime object of the first commit.
+    """
+    output = cmdline('cd {repository}; git log --reverse | sed -n -e "3,3p"'
+                     .format(repository=repository)).split()
+    date_string = output[2] + '-' + output[3] + '-' + output[5]
+    return datetime.datetime.strptime(date_string, "%b-%d-%Y")
+
+
 def checkout_by_date(repository: str, directory: str, before_date: datetime.datetime) -> None:
     """
     Checkout a given repository into a folder for a given date and time.

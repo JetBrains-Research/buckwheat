@@ -14,7 +14,7 @@ import tree_sitter
 
 from .language_recognition.utils import get_enry
 from .parsers.utils import get_parser
-from .slicing import checkout_by_date, cmdline, get_dates
+from .slicing import checkout_by_date, cmdline, get_dates, get_date_of_first_commit
 from .subtokenizing import TokenParser
 
 SUPPORTED_LANGUAGES = {"Java": "java",
@@ -59,7 +59,7 @@ def recognize_languages(directory: str) -> dict:
     :return: dictionary {langauge1: [files], language2: [files], ...}
     """
     return json.loads(cmdline("{enry_loc} -json -mode files {directory}"
-                      .format(enry_loc=get_enry(), directory=directory)))
+                              .format(enry_loc=get_enry(), directory=directory)))
 
 
 def read_file(file: str) -> bytes:
@@ -109,7 +109,10 @@ def get_identifiers(file: str, lang: str) -> List[Tuple[str, int]]:
                     subtokens = list(TokenParser().process_token(identifier))
                     identifiers.extend(subtokens)
             if len(child.children) != 0:
-                traverse_tree(child)
+                try:
+                    traverse_tree(child)
+                except RecursionError:
+                    continue
 
     traverse_tree(root)
     sorted_identifiers = sorted(Counter(identifiers).items(), key=itemgetter(1), reverse=True)
@@ -132,7 +135,8 @@ def transform_identifiers(identifiers: List[Tuple[str, int]]) -> List[str]:
     return formatted_identifiers
 
 
-def slice_and_parse(repositories_file: str, output_dir: str, dates: List[datetime.datetime]) -> None:
+def slice_and_parse(repositories_file: str, output_dir: str,
+                    dates: List[datetime.datetime]) -> None:
     """
     Split the repository, parse the full files, write the data into a file.
     Can be called for parsing full files and for parsing diffs only.
@@ -147,8 +151,8 @@ def slice_and_parse(repositories_file: str, output_dir: str, dates: List[datetim
     repositories_list = []
     with open(repositories_file) as fin:
         for line in fin:
-            repositories_list.append(line.rstrip())
-            assert os.path.exists(os.path.abspath(os.path.join(repositories_list[-1], ".git")))
+            repositories_list.append([line.rstrip(), get_date_of_first_commit(line.rstrip())])
+            assert os.path.exists(os.path.abspath(os.path.join(repositories_list[-1][0], ".git")))
     # Create a folder for created files
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
@@ -160,28 +164,34 @@ def slice_and_parse(repositories_file: str, output_dir: str, dates: List[datetim
         for date in tqdm(dates):
             start_index = count + 1
             for repository in repositories_list:
-                with TemporaryDirectory() as td:
-                    subdirectory = os.path.abspath(os.path.join(td, date.strftime("%Y-%m-%d")))
-                    checkout_by_date(repository, subdirectory, date)
-                    lang2files = recognize_languages(td)
-                    for lang in lang2files.keys():
-                        if lang in SUPPORTED_LANGUAGES.keys():
-                            for file in lang2files[lang]:
-                                try:
-                                    identifiers = get_identifiers(
-                                        os.path.abspath(os.path.join(td, file)),
-                                        SUPPORTED_LANGUAGES[lang])
-                                    if len(identifiers) != 0:
-                                        count += 1
-                                        formatted_identifiers = transform_identifiers(identifiers)
-                                        fout.write("{file_index};{file_path};{tokens}\n"
-                                                   .format(file_index=str(count),
-                                                           file_path=repository + os.path.relpath(
-                                                               os.path.abspath(
-                                                                   os.path.join(td, file)), td),
-                                                           tokens=",".join(formatted_identifiers)))
-                                except UnicodeDecodeError:
-                                    continue
+                if date > repository[1]:
+                    with TemporaryDirectory() as td:
+                        subdirectory = os.path.abspath(os.path.join(td, date.strftime("%Y-%m-%d")))
+                        checkout_by_date(repository[0], subdirectory, date)
+                        lang2files = recognize_languages(td)
+                        for lang in lang2files.keys():
+                            if lang in SUPPORTED_LANGUAGES.keys():
+                                for file in lang2files[lang]:
+                                    try:
+                                        identifiers = get_identifiers(
+                                            os.path.abspath(os.path.join(td, file)),
+                                            SUPPORTED_LANGUAGES[lang])
+                                        if len(identifiers) != 0:
+                                            count += 1
+                                            formatted_identifiers = transform_identifiers(
+                                                identifiers)
+                                            fout.write("{file_index};{file_path};{tokens}\n"
+                                                       .format(file_index=str(count),
+                                                               file_path=repository[0] +
+                                                                         os.path.relpath(
+                                                                             os.path.abspath(
+                                                                                 os.path.join(
+                                                                                     td, file)),
+                                                                             td),
+                                                               tokens=",".join(
+                                                                   formatted_identifiers)))
+                                    except UnicodeDecodeError:
+                                        continue
             end_index = count
             dates_indices[date.strftime("%Y-%m-%d")] = (start_index, end_index)
     # Write the index boundaries of slices into a separate log file
