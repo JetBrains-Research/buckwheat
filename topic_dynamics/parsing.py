@@ -3,18 +3,22 @@ Parsing-related functionality.
 """
 from collections import Counter
 import json
+import numpy as np
 from operator import itemgetter
 import os
 from subprocess import PIPE, Popen
 from tempfile import TemporaryDirectory
 from typing import List, Tuple
 
+from joblib import cpu_count, delayed, Parallel
 from tqdm import tqdm
 import tree_sitter
 
 from .language_recognition.utils import get_enry
 from .parsers.utils import get_parser
 from .subtokenizing import TokenParser
+
+processes = cpu_count()
 
 SUPPORTED_LANGUAGES = {"Java": "java",
                        "Python": "python",
@@ -43,7 +47,7 @@ def cmdline(command: str) -> str:
 
 def clone_repository(repository: str, directory: str) -> None:
     """
-    Checkout a given repository into a folder.
+    Clone a given repository into a folder.
     :param repository: a link to GitHub repository.
     :param directory: path to target directory to clone the repository.
     :return: None.
@@ -55,7 +59,7 @@ def clone_repository(repository: str, directory: str) -> None:
 def recognize_languages(directory: str) -> dict:
     """
     Recognize the languages in the directory using Enry and return a dictionary
-    {langauge1: [files], language2: [files], ...}.
+        {langauge1: [files], language2: [files], ...}.
     :param directory: the path to the directory.
     :return: dictionary {langauge1: [files], language2: [files], ...}
     """
@@ -75,7 +79,7 @@ def read_file(file: str) -> bytes:
 
 def get_positional_bytes(node: tree_sitter.Node) -> Tuple[int, int]:
     """
-    Extract start and end byte.
+    Extract start and end byte of the tree-sitter Node.
     :param node: node on the AST.
     :return: (start byte, end byte).
     """
@@ -84,12 +88,12 @@ def get_positional_bytes(node: tree_sitter.Node) -> Tuple[int, int]:
     return start, end
 
 
-def get_identifiers(file: str, lang: str) -> List[Tuple[str, int]]:
+def get_identifiers(file: str, lang: str) -> Counter:
     """
-    Gather a sorted list of identifiers in the file and their count.
+    Gather a Counter object of identifiers in the file and their count.
     :param file: the path to the file.
     :param lang: the language of file.
-    :return: a list of tuples, identifier and count.
+    :return: a Counter object of items: identifier and count.
     """
     content = read_file(file)
     tree = get_parser(lang).parse(content)
@@ -116,19 +120,54 @@ def get_identifiers(file: str, lang: str) -> List[Tuple[str, int]]:
                     continue
 
     traverse_tree(root)
-    sorted_identifiers = sorted(Counter(identifiers).items(), key=itemgetter(1), reverse=True)
-
-    return sorted_identifiers
+    return Counter(identifiers)
 
 
-def transform_identifiers(identifiers: List[Tuple[str, int]]) -> List[str]:
+def get_identifiers_from_list(files_list: List[str], lang: str) -> Counter:
+    """
+    Gather the identifiers of all the files in the list into a single Counter object.
+    :param files_list: the list of the paths to files.
+    :param lang: the language of file.
+    :return: a Counter object of items: identifier and count.
+    """
+    identifiers = Counter()
+    for file in files_list:
+        try:
+            file_identifiers = get_identifiers(file, lang)
+            identifiers = identifiers + file_identifiers
+        except UnicodeDecodeError:
+            continue
+
+    return identifiers
+
+
+def create_absolute_chunks(directory: str, files_list: List[str]) -> List[List[str]]:
+    """
+    Given a directory and a list of relative paths to files in this directory,
+    create approximately equal lists of full paths to these files.
+    :param directory: a full path to the directory.
+    :param files_list: a list of relative paths to files in the given directory.
+    :return: a list of approximately equal lists with full paths to files.
+    """
+    n_files = len(files_list)
+    if n_files < processes:
+        return [[os.path.abspath(os.path.join(directory, file))
+                 for file in files_list], [] * (processes - 1)]
+    else:
+        chunk_size = len(files_list) // processes
+        return np.array_split([os.path.abspath(os.path.join(directory, file))
+                               for file in files_list], chunk_size)
+
+
+def transform_identifiers(identifiers: Counter) -> List[str]:
     """
     Transform the original list of identifiers into the writable form.
-    :param identifiers: list of tuples, identifier and count.
+    :param identifiers: a Counter object of identifiers and their count.
     :return: a list of identifiers in the writable form, "identifier:count".
     """
+    sorted_indentifiers = sorted(identifiers.items(), key=itemgetter(1), reverse=True)
     formatted_identifiers = []
-    for identifier in identifiers:
+    for identifier in sorted_indentifiers:
         if identifier[0].rstrip() != "":  # Checking for occurring empty tokens.
             formatted_identifiers.append("{identifier}:{count}"
                                          .format(identifier=identifier[0].rstrip(),
@@ -136,13 +175,14 @@ def transform_identifiers(identifiers: List[Tuple[str, int]]) -> List[str]:
     return formatted_identifiers
 
 
-def slice_and_parse(repositories_file: str, output_dir: str) -> None:
+def tokenize_repositories(repositories_file: str, output_dir: str, batch_size: int) -> None:
     """
-    Split the repository, parse the full files, write the data into a file.
-    Can be called for parsing full files and for parsing diffs only.
+    Given the list of links to GitHub, tokenize all the repositories in the list,
+    writing them in batches to files, a single repository per line.
     When run several times, overwrites the data.
-    :param repositories_file: path to text file with a list of repositories links.
+    :param repositories_file: path to text file with a list of repositories links on GitHub.
     :param output_dir: path to the output directory.
+    :param batch_size: the number of repositories to be grouped into a single batch.
     :return: None.
     """
     print("Tokenizing the repositories.")
@@ -155,40 +195,28 @@ def slice_and_parse(repositories_file: str, output_dir: str) -> None:
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     count = 0
-    # Create temporal slices of the project, get a list of files for each slice,
-    # parse all files, save the tokens
-    with open(os.path.abspath(os.path.join(output_dir, "tokens.txt")), "w+") as fout1, \
-            open(os.path.abspath(os.path.join(output_dir, "indices.txt")), "w+") as fout2:
-        for repository in tqdm(repositories_list):
-            start_index = count + 1
+    for repository in tqdm(repositories_list):
+        count_batch = count // batch_size + 1
+        with open(os.path.abspath(os.path.join(output_dir, f"docword{count_batch}.txt")), "a+") as fout1, \
+                open(os.path.abspath(os.path.join(output_dir, f"vocab{count_batch}.txt")), "a+") as fout2:
+            identifiers = Counter()
             with TemporaryDirectory() as td:
                 clone_repository(repository, td)
                 lang2files = recognize_languages(td)
                 for lang in lang2files.keys():
                     if lang in SUPPORTED_LANGUAGES.keys():
-                        for file in lang2files[lang]:
-                            try:
-                                identifiers = get_identifiers(
-                                    os.path.abspath(os.path.join(td, file)),
-                                    SUPPORTED_LANGUAGES[lang])
-                                if len(identifiers) != 0:
-                                    count += 1
-                                    formatted_identifiers = transform_identifiers(
-                                        identifiers)
-                                    fout1.write("{file_index};{file_path};{tokens}\n"
-                                                .format(file_index=str(count),
-                                                        file_path=repository +
-                                                                  os.path.relpath(
-                                                                      os.path.abspath(
-                                                                          os.path.join(
-                                                                              td, file)),
-                                                                      td),
-                                                        tokens=",".join(
-                                                            formatted_identifiers)))
-                            except UnicodeDecodeError:
-                                continue
-            end_index = count
-            if end_index >= start_index:  # Skips empty repositories
-                fout2.write("{repository};{start_index};{end_index}\n"
-                            .format(repository=repository, start_index=str(start_index),
-                                    end_index=str(end_index)))
+                        with Parallel(processes) as pool:
+                            identifiers_lang = pool([delayed(get_identifiers_from_list)
+                                                     (chunk, SUPPORTED_LANGUAGES[lang])
+                                                     for chunk in
+                                                     create_absolute_chunks(td, lang2files[lang])])
+                        for chunk_result in identifiers_lang:
+                            identifiers += chunk_result
+            if len(identifiers) != 0:
+                count += 1
+                formatted_identifiers = transform_identifiers(identifiers)
+                fout1.write("{repository_index};{repository};{tokens}\n"
+                            .format(repository_index=str(count), repository=repository,
+                                    tokens=",".join(formatted_identifiers)))
+    print("Tokenization successfully completed.")
+    
