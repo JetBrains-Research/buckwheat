@@ -100,7 +100,6 @@ def get_tokens(file: str, lang: str) -> Tuple[Counter, set]:
     tree = get_parser(lang).parse(content)
     root = tree.root_node
     tokens = []
-    vocab = set()
 
     def traverse_tree(node: tree_sitter.Node) -> None:
         """
@@ -115,8 +114,6 @@ def get_tokens(file: str, lang: str) -> Tuple[Counter, set]:
                 if "\n" not in token:  # Will break output files. TODO: try to recreate bug.
                     subtokens = list(TokenParser().process_token(token))
                     tokens.extend(subtokens)
-                    for subtoken in subtokens:
-                        vocab.add(subtoken)
             if len(child.children) != 0:
                 try:
                     traverse_tree(child)
@@ -124,7 +121,7 @@ def get_tokens(file: str, lang: str) -> Tuple[Counter, set]:
                     continue
 
     traverse_tree(root)
-    return Counter(tokens), vocab
+    return Counter(tokens), set(tokens)
 
 
 def transform_files_list(lang2files: Dict[str, str], directory: str) -> List[Tuple[str, str]]:
@@ -236,9 +233,9 @@ def tokenize_repositories(repositories_file: str, output_dir: str, batch_size: i
                     chunk_results = pool([delayed(get_tokens_from_list)(chunk)
                                          for chunk in create_chunks(files)])
                 for chunk_result in chunk_results:
-                    tokens += chunk_result[0] # Tokens are unique for every repository
-                    vocab.update(chunk_result[1]) # Vocabulary is compiled for the entire batch
-                if len(tokens) != 0: # Skipping the possible empty repositories
+                    tokens += chunk_result[0]  # Tokens are unique for every repository
+                    vocab.update(chunk_result[1])  # Vocabulary is compiled for the entire batch
+                if len(tokens) != 0:  # Skipping the possible empty repositories
                     rep2tokens[repository] = tokens
             token2number = {}
             for number, token in enumerate(vocab):
@@ -248,9 +245,9 @@ def tokenize_repositories(repositories_file: str, output_dir: str, batch_size: i
                                                    f"docword{count_batch}.txt")), "w+") as fout:
                 for repository in rep2tokens.keys():
                     fout.write("{repository};{tokens}\n"
-                                .format(repository=repository,
-                                        tokens=",".join(transform_tokens(rep2tokens[repository],
-                                                                         token2number))))
+                               .format(repository=repository,
+                                       tokens=",".join(transform_tokens(rep2tokens[repository],
+                                                                        token2number))))
             # Writing the vocabulary, mapping numbers to tokens
             with open(os.path.abspath(os.path.join(output_dir,
                                                    f"vocab{count_batch}.txt")), "w+") as fout:
