@@ -5,6 +5,10 @@ from collections import Counter
 import json
 from operator import itemgetter
 import os
+from pygments.lexers.python import PythonLexer
+from pygments.lexers.jvm import JavaLexer
+from pygments.lexers.c_cpp import CppLexer
+import pygments
 from subprocess import PIPE, Popen
 from tempfile import TemporaryDirectory
 from typing import Any, Dict, List, Tuple
@@ -124,6 +128,18 @@ def get_tokens(file: str, lang: str) -> Tuple[Counter, set]:
     return Counter(tokens), set(tokens)
 
 
+def get_tokens_pygments(file: str, lang: str):
+    content = read_file(file)
+    tokens = []
+    lexer = {"cpp": CppLexer(),
+             "java": JavaLexer(),
+             "python": PythonLexer()}
+    for pair in pygments.lex(content, lexer[lang]):
+        if pair[0] in pygments.token.Name or pair[0] == pygments.token.Comment.PreprocFile:
+            tokens.extend(list(TokenParser().process_token(pair[1])))
+    return Counter(tokens), set(tokens)
+
+
 def transform_files_list(lang2files: Dict[str, str], directory: str) -> List[Tuple[str, str]]:
     """
     Transform the output of Enry on a directory into a list of tuples (full_path_to_file, lang).
@@ -151,7 +167,7 @@ def get_tokens_from_list(files_list: List[Tuple[str, str]]) -> Tuple[Counter, se
     vocab = set()
     for file in files_list:
         try:
-            file_tokens, file_vocab = get_tokens(file[0], file[1])
+            file_tokens, file_vocab = get_tokens_pygments(file[0], file[1])
             tokens = tokens + file_tokens
             vocab.update(file_vocab)
         except UnicodeDecodeError:
