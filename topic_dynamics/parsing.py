@@ -167,7 +167,7 @@ def get_tokens_from_list(files_list: List[Tuple[str, str]]) -> Tuple[Counter, se
     vocab = set()
     for file in files_list:
         try:
-            file_tokens, file_vocab = get_tokens_pygments(file[0], file[1])
+            file_tokens, file_vocab = get_tokens(file[0], file[1])
             tokens = tokens + file_tokens
             vocab.update(file_vocab)
         except UnicodeDecodeError:
