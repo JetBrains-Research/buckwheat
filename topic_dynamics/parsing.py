@@ -56,6 +56,7 @@ def clone_repository(repository: str, directory: str) -> None:
     :param directory: path to target directory to clone the repository.
     :return: None.
     """
+    repository = repository[:8] + "user:password@" + repository[8:]
     os.system("git clone --quiet --depth 1 {repository} {directory}".format(repository=repository,
                                                                             directory=directory))
 
@@ -220,23 +221,18 @@ def tokenize_repositories(repositories_file: str, output_dir: str, batch_size: i
     print("Tokenizing the repositories.")
     # Reading the input file and splitting it into batches of necessary size
     assert os.path.exists(repositories_file)
-    repositories_list = [[]]
     with open(repositories_file) as fin:
-        count_repositories = 0
-        for line in fin:
-            repositories_list[-1].append(line.rstrip())
-            count_repositories += 1
-            if count_repositories == batch_size:
-                count_repositories = 0
-                repositories_list.append([])
+        repositories_list = fin.read().splitlines()
+        repositories_batches = [repositories_list[x:x+batch_size]
+                                for x in range(0, len(repositories_list), batch_size)]
     # Creating the output directory
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     # Processing the batches
     with Parallel(PROCESSES) as pool:
         # Iterating over batches
-        for count_batch, batch in enumerate(repositories_list):
-            print(f"Tokenizing batch {count_batch + 1} out of {len(repositories_list)}.")
+        for count_batch, batch in enumerate(repositories_batches):
+            print(f"Tokenizing batch {count_batch + 1} out of {len(repositories_batches)}.")
             rep2tokens = {}
             vocab = set()
             # Iterating over repositories in the batch
