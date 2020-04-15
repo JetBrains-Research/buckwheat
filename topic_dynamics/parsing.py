@@ -104,14 +104,14 @@ class PygmentsParser:
               "Python": PythonLexer()}
 
     @staticmethod
-    def read_file_bytes(file: str) -> bytes:
+    def read_file(file: str) -> str:
         """
         Read the contents of the file.
         :param file: the path to the file.
         :return: bytes with the contents of the file.
         """
         with open(file) as fin:
-            return bytes(fin.read(), "utf-8")
+            return fin.read()
 
     @staticmethod
     def get_tokens(file: str, lang: str) -> Tuple[Counter, set]:
@@ -122,7 +122,7 @@ class PygmentsParser:
         :param lang: the language of file.
         :return: a Counter object of items: token and count, and a set of all tokens.
         """
-        content = PygmentsParser.read_file_bytes(file)
+        content = PygmentsParser.read_file(file)
         tokens = []
         for pair in pygments.lex(content, PygmentsParser.LEXERS[lang]):
             if pair[0] in pygments.token.Name or pair[0] == pygments.token.Comment.PreprocFile:
