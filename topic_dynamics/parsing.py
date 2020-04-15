@@ -22,17 +22,112 @@ from .language_recognition.utils import get_enry
 from .parsers.utils import get_parser
 from .subtokenizing import TokenParser
 
+Subtokenizer = TokenParser()
+
 PROCESSES = cpu_count()
 
-SUPPORTED_LANGUAGES = {"Java": "java",
-                       "Python": "python",
-                       "C++": "cpp"}
+SUPPORTED_LANGUAGES = {"Java": "tree-sitter",
+                       "Python": "tree-sitter",
+                       "C++": "tree-sitter"}
 
-NODE_TYPES = {"c": ["identifier", "type_identifier"],
-              "c-sharp": ["identifier", "type_identifier"],
-              "cpp": ["identifier", "type_identifier"],
-              "java": ["identifier", "type_identifier"],
-              "python": ["identifier", "type_identifier"]}
+
+class TreeSitterParser:
+    PARSERS = {"Java": "java",
+               "Python": "python",
+               "C++": "cpp"}
+
+    NODE_TYPES = {"Java": {"identifier", "type_identifier"},
+                  "Python": {"identifier", "type_identifier"},
+                  "C++": {"identifier", "type_identifier"}}
+
+    @staticmethod
+    def read_file_bytes(file: str) -> bytes:
+        """
+        Read the contents of the file.
+        :param file: the path to the file.
+        :return: bytes with the contents of the file.
+        """
+        with open(file) as fin:
+            return bytes(fin.read(), "utf-8")
+
+    @staticmethod
+    def get_positional_bytes(node: tree_sitter.Node) -> Tuple[int, int]:
+        """
+        Extract start and end byte of the tree-sitter Node.
+        :param node: node on the AST.
+        :return: (start byte, end byte).
+        """
+        start = node.start_byte
+        end = node.end_byte
+        return start, end
+
+    @staticmethod
+    def get_tokens(file: str, lang: str) -> Tuple[Counter, set]:
+        """
+        Gather a Counter object of tokens in the file and their count, as well as a set of all
+        encountered tokens.
+        :param file: the path to the file.
+        :param lang: the language of file.
+        :return: a Counter object of items: token and count, and a set of all tokens.
+        """
+        content = TreeSitterParser.read_file_bytes(file)
+        tree = get_parser(TreeSitterParser.PARSERS[lang]).parse(content)
+        root = tree.root_node
+        tokens = []
+
+        def traverse_tree(node: tree_sitter.Node) -> None:
+            """
+            Run down the AST (DFS) from a given node and gather tokens from its children.
+            :param node: starting node.
+            :return: None.
+            """
+            for child in node.children:
+                if child.type in TreeSitterParser.NODE_TYPES[lang]:
+                    start, end = TreeSitterParser.get_positional_bytes(child)
+                    token = content[start:end].decode("utf-8")
+                    if "\n" not in token:  # Will break output files.
+                        subtokens = list(Subtokenizer.process_token(token))
+                        tokens.extend(subtokens)
+                if len(child.children) != 0:
+                    try:
+                        traverse_tree(child)
+                    except RecursionError:
+                        continue
+
+        traverse_tree(root)
+        return Counter(tokens), set(tokens)
+
+
+class PygmentsParser:
+    LEXERS = {"C++": CppLexer(),
+              "Java": JavaLexer(),
+              "Python": PythonLexer()}
+
+    @staticmethod
+    def read_file_bytes(file: str) -> bytes:
+        """
+        Read the contents of the file.
+        :param file: the path to the file.
+        :return: bytes with the contents of the file.
+        """
+        with open(file) as fin:
+            return bytes(fin.read(), "utf-8")
+
+    @staticmethod
+    def get_tokens(file: str, lang: str) -> Tuple[Counter, set]:
+        """
+        Gather a Counter object of tokens in the file and their count, as well as a set of all
+        encountered tokens.
+        :param file: the path to the file.
+        :param lang: the language of file.
+        :return: a Counter object of items: token and count, and a set of all tokens.
+        """
+        content = PygmentsParser.read_file_bytes(file)
+        tokens = []
+        for pair in pygments.lex(content, PygmentsParser.LEXERS[lang]):
+            if pair[0] in pygments.token.Name or pair[0] == pygments.token.Comment.PreprocFile:
+                tokens.extend(list(Subtokenizer.process_token(pair[1])))
+        return Counter(tokens), set(tokens)
 
 
 def cmdline(command: str) -> str:
@@ -72,75 +167,6 @@ def recognize_languages(directory: str) -> dict:
                               .format(enry_loc=get_enry(), directory=directory)))
 
 
-def read_file(file: str) -> bytes:
-    """
-    Read the contents of the file.
-    :param file: the path to the file.
-    :return: bytes with the contents of the file.
-    """
-    with open(file) as fin:
-        return bytes(fin.read(), "utf-8")
-
-
-def get_positional_bytes(node: tree_sitter.Node) -> Tuple[int, int]:
-    """
-    Extract start and end byte of the tree-sitter Node.
-    :param node: node on the AST.
-    :return: (start byte, end byte).
-    """
-    start = node.start_byte
-    end = node.end_byte
-    return start, end
-
-
-def get_tokens(file: str, lang: str) -> Tuple[Counter, set]:
-    """
-    Gather a Counter object of tokens in the file and their count, as well as a set of all
-    encountered tokens.
-    :param file: the path to the file.
-    :param lang: the language of file.
-    :return: a Counter object of items: token and count, and a set of all tokens.
-    """
-    content = read_file(file)
-    tree = get_parser(lang).parse(content)
-    root = tree.root_node
-    tokens = []
-
-    def traverse_tree(node: tree_sitter.Node) -> None:
-        """
-        Run down the AST (DFS) from a given node and gather tokens from its children.
-        :param node: starting node.
-        :return: None.
-        """
-        for child in node.children:
-            if child.type in NODE_TYPES[lang]:
-                start, end = get_positional_bytes(child)
-                token = content[start:end].decode("utf-8")
-                if "\n" not in token:  # Will break output files. TODO: try to recreate bug.
-                    subtokens = list(TokenParser().process_token(token))
-                    tokens.extend(subtokens)
-            if len(child.children) != 0:
-                try:
-                    traverse_tree(child)
-                except RecursionError:
-                    continue
-
-    traverse_tree(root)
-    return Counter(tokens), set(tokens)
-
-
-def get_tokens_pygments(file: str, lang: str):
-    content = read_file(file)
-    tokens = []
-    lexer = {"cpp": CppLexer(),
-             "java": JavaLexer(),
-             "python": PythonLexer()}
-    for pair in pygments.lex(content, lexer[lang]):
-        if pair[0] in pygments.token.Name or pair[0] == pygments.token.Comment.PreprocFile:
-            tokens.extend(list(TokenParser().process_token(pair[1])))
-    return Counter(tokens), set(tokens)
-
-
 def transform_files_list(lang2files: Dict[str, str], directory: str) -> List[Tuple[str, str]]:
     """
     Transform the output of Enry on a directory into a list of tuples (full_path_to_file, lang).
@@ -152,16 +178,43 @@ def transform_files_list(lang2files: Dict[str, str], directory: str) -> List[Tup
     for lang in lang2files.keys():
         if lang in SUPPORTED_LANGUAGES.keys():
             for file in lang2files[lang]:
-                files.append((os.path.abspath(os.path.join(directory, file)),
-                              SUPPORTED_LANGUAGES[lang]))
+                files.append((os.path.abspath(os.path.join(directory, file)), lang))
     return files
+
+
+def create_chunks(lst: List[Any]) -> List[List[Any]]:
+    """
+    Transform a list into approximately equal lists for multiprocessing.
+    :param lst: a list.
+    :return: a list of approximately equal lists.
+    """
+    n_files = len(lst)
+    if n_files < PROCESSES:
+        return [lst, [] * (PROCESSES - 1)]
+    else:
+        chunk_size = len(lst) // PROCESSES
+        return np.array_split(lst, chunk_size)
+
+
+def get_tokens(file: str, lang: str) -> Tuple[Counter, set]:
+    """
+    Gather a Counter object of tokens in the file and their count, as well as a set of all
+    encountered tokens.
+    :param file: the path to the file.
+    :param lang: the language of file.
+    :return: a Counter object of items: token and count, and a set of all tokens.
+    """
+    if SUPPORTED_LANGUAGES[lang] == "tree-sitter":
+        return TreeSitterParser.get_tokens(file, lang)
+    else:
+        return PygmentsParser.get_tokens(file, lang)
 
 
 def get_tokens_from_list(files_list: List[Tuple[str, str]]) -> Tuple[Counter, set]:
     """
     Gather the tokens of all the files in the list into a single Counter object, as well
     as a set of all the tokens.
-    :param files_list: the list of the paths to files.
+    :param files_list: the list of the paths to files and their languages.
     :return: a Counter object of items: token and count and a set of all tokens.
     """
     tokens = Counter()
@@ -175,20 +228,6 @@ def get_tokens_from_list(files_list: List[Tuple[str, str]]) -> Tuple[Counter, se
             continue
 
     return tokens, vocab
-
-
-def create_chunks(l: List[Any]) -> List[List[Any]]:
-    """
-    Transform a l into approximately equal lists for multiprocessing.
-    :param l: a list.
-    :return: a list of approximately equal lists.
-    """
-    n_files = len(l)
-    if n_files < PROCESSES:
-        return [l, [] * (PROCESSES - 1)]
-    else:
-        chunk_size = len(l) // PROCESSES
-        return np.array_split(l, chunk_size)
 
 
 def transform_tokens(tokens: Counter, token2number: dict) -> List[str]:
