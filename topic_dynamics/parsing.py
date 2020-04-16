@@ -5,9 +5,8 @@ from collections import Counter
 import json
 from operator import itemgetter
 import os
-from pygments.lexers.python import PythonLexer
-from pygments.lexers.jvm import JavaLexer
-from pygments.lexers.c_cpp import CppLexer
+from pygments.lexers.jvm import KotlinLexer, ScalaLexer
+from pygments.lexers.objective import SwiftLexer
 import pygments
 from subprocess import PIPE, Popen
 from tempfile import TemporaryDirectory
@@ -26,19 +25,52 @@ Subtokenizer = TokenParser()
 
 PROCESSES = cpu_count()
 
-SUPPORTED_LANGUAGES = {"Java": "tree-sitter",
+SUPPORTED_LANGUAGES = {"JavaScript": "tree-sitter",
                        "Python": "tree-sitter",
-                       "C++": "tree-sitter"}
+                       "Java": "tree-sitter",
+                       "Go": "tree-sitter",
+                       "C++": "tree-sitter",
+                       "Ruby": "tree-sitter",
+                       "TypeScript": "tree-sitter",
+                       "PHP": "tree-sitter",
+                       "C#": "tree-sitter",
+                       "C": "tree-sitter",
+                       "Scala": "pygments",
+                       "Shell": "tree-sitter",
+                       "Rust": "tree-sitter",
+                       "Swift": "pygments",
+                       "Kotlin": "pygments"}
 
 
 class TreeSitterParser:
-    PARSERS = {"Java": "java",
+    PARSERS = {"JavaScript": "javascript",
                "Python": "python",
-               "C++": "cpp"}
+               "Java": "java",
+               "Go": "go",
+               "C++": "cpp",
+               "Ruby": "ruby",
+               "TypeScript": "typescript",
+               "PHP": "php",
+               "C#": "c_sharp",
+               "C": "c",
+               "Shell": "bash",
+               "Rust": "rust"}
 
-    NODE_TYPES = {"Java": {"identifier", "type_identifier"},
-                  "Python": {"identifier", "type_identifier"},
-                  "C++": {"identifier", "type_identifier"}}
+    NODE_TYPES = {"JavaScript": {"identifier", "property_identifier",
+                                 "shorthand_property_identifier"},
+                  "Python": {"identifier"},
+                  "Java": {"identifier", "type_identifier"},
+                  "Go": {"identifier", "field_identifier", "type_identifier"},
+                  "C++": {"identifier", "namespace_identifier", "field_identifier",
+                          "type_identifier"},
+                  "Ruby": {"identifier", "constant", "symbol"},
+                  "TypeScript": {"identifier", "property_identifier",
+                                 "shorthand_property_identifier", "type_identifier"},
+                  "PHP": {"name"},
+                  "C#": {"identifier"},
+                  "C": {"identifier", "field_identifier", "type_identifier"},
+                  "Shell": {"variable_name", "command_name"},
+                  "Rust": {"identifier", "field_identifier", "type_identifier"}}
 
     @staticmethod
     def read_file_bytes(file: str) -> bytes:
@@ -99,9 +131,13 @@ class TreeSitterParser:
 
 
 class PygmentsParser:
-    LEXERS = {"C++": CppLexer(),
-              "Java": JavaLexer(),
-              "Python": PythonLexer()}
+    LEXERS = {"Scala": ScalaLexer(),
+              "Swift": SwiftLexer(),
+              "Kotlin": KotlinLexer()}
+
+    TYPES = {"Scala": {pygments.token.Name, pygments.token.Keyword.Type},
+             "Swift": {pygments.token.Name},
+             "Kotlin": {pygments.token.Name}}
 
     @staticmethod
     def read_file(file: str) -> str:
@@ -125,7 +161,7 @@ class PygmentsParser:
         content = PygmentsParser.read_file(file)
         tokens = []
         for pair in pygments.lex(content, PygmentsParser.LEXERS[lang]):
-            if pair[0] in pygments.token.Name or pair[0] == pygments.token.Comment.PreprocFile:
+            if any(pair[0] in sublist for sublist in PygmentsParser.TYPES[lang]):
                 tokens.extend(list(Subtokenizer.process_token(pair[1])))
         return Counter(tokens), set(tokens)
 
