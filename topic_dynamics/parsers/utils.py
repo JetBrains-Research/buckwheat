@@ -42,6 +42,7 @@ def main() -> None:
     ruby_grammar_loc = os.path.join(tree_sitter_dir, "vendor/tree-sitter-ruby")
     typescript_grammar_loc = os.path.join(tree_sitter_dir,
                                           "vendor/tree-sitter-typescript/typescript")
+    tsx_grammar_loc = os.path.join(tree_sitter_dir, "vendor/tree-sitter-typescript/tsx")
     php_grammar_loc = os.path.join(tree_sitter_dir, "vendor/tree-sitter-php")
     c_sharp_grammar_loc = os.path.join(tree_sitter_dir, "vendor/tree-sitter-c-sharp")
     c_grammar_loc = os.path.join(tree_sitter_dir, "vendor/tree-sitter-c")
@@ -62,6 +63,7 @@ def main() -> None:
             cpp_grammar_loc,
             ruby_grammar_loc,
             typescript_grammar_loc,
+            tsx_grammar_loc,
             php_grammar_loc,
             c_sharp_grammar_loc,
             c_grammar_loc,
