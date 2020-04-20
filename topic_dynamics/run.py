@@ -21,8 +21,10 @@ def main(args: argparse.Namespace) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("-i", "--input", required=True, help="Full path to the input file.")
+    parser.add_argument("-i", "--input", required=True,
+                        help="Full path to the input file with a list of links to GitHub.")
     parser.add_argument("-o", "--output", required=True, help="Full path to the output directory.")
-    parser.add_argument("-b", "--batches", default=100, help="The size of the batch of projects.")
+    parser.add_argument("-b", "--batches", default=100,
+                        help="The size of the batch of projects that are saved to one file.")
     args = parser.parse_args()
     main(args)

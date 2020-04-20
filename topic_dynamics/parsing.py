@@ -148,7 +148,7 @@ class PygmentsParser:
         """
         Read the contents of the file.
         :param file: the path to the file.
-        :return: bytes with the contents of the file.
+        :return: the contents of the file.
         """
         with open(file) as fin:
             return fin.read()
