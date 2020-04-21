@@ -26,12 +26,12 @@ def main() -> None:
     Download Enry.
     :return: None.
     """
-    url = "https://github.com/src-d/enry/releases/download/v2.1.0/enry_v2.1.0_linux_amd64.tar.gz"
+    url = "https://github.com/go-enry/enry/releases/download/v1.0.0/enry-v1.0.0-linux-amd64.tar.gz"
     if not os.path.exists(os.path.abspath(os.path.join(get_enry_dir(), "enry.tar.gz"))):
         urllib.request.urlretrieve(url,
                                    os.path.abspath(os.path.join(get_enry_dir(), "enry.tar.gz")))
     if not os.path.exists(get_enry()):
-        os.system("tar -xzf {tar} --strip-components=1 -C {directory}"
+        os.system("tar -xzf {tar} -C {directory}"
                   .format(tar=os.path.abspath(os.path.join(get_enry_dir(), "enry.tar.gz")),
                           directory=get_enry_dir()))
     print("Enry successfully initialized.")
