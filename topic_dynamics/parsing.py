@@ -69,7 +69,7 @@ class TreeSitterParser:
                   "TypeScript": {"identifier", "property_identifier",
                                  "shorthand_property_identifier", "type_identifier"},
                   "TSX": {"identifier", "property_identifier",
-                                 "shorthand_property_identifier", "type_identifier"},
+                          "shorthand_property_identifier", "type_identifier"},
                   "PHP": {"name"},
                   "C#": {"identifier"},
                   "C": {"identifier", "field_identifier", "type_identifier"},
@@ -125,12 +125,11 @@ class TreeSitterParser:
                         subtokens = list(Subtokenizer.process_token(token))
                         tokens.extend(subtokens)
                 if len(child.children) != 0:
-                    try:
-                        traverse_tree(child)
-                    except RecursionError:
-                        continue
-
-        traverse_tree(root)
+                    traverse_tree(child)
+        try:
+            traverse_tree(root)
+        except RecursionError:
+            return Counter(), set()
         return Counter(tokens), set(tokens)
 
 
