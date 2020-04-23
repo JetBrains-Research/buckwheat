@@ -98,13 +98,12 @@ class TreeSitterParser:
         return start, end
 
     @staticmethod
-    def get_tokens(file: str, lang: str) -> Tuple[Counter, set]:
+    def get_tokens(file: str, lang: str) -> Counter:
         """
-        Gather a Counter object of tokens in the file and their count, as well as a set of all
-        encountered tokens.
+        Gather a Counter object of tokens in the file and their count.
         :param file: the path to the file.
         :param lang: the language of file.
-        :return: a Counter object of items: token and count, and a set of all tokens.
+        :return: a Counter object of items: token and count.
         """
         content = TreeSitterParser.read_file_bytes(file)
         tree = get_parser(TreeSitterParser.PARSERS[lang]).parse(content)
@@ -126,11 +125,12 @@ class TreeSitterParser:
                         tokens.extend(subtokens)
                 if len(child.children) != 0:
                     traverse_tree(child)
+
         try:
             traverse_tree(root)
         except RecursionError:
-            return Counter(), set()
-        return Counter(tokens), set(tokens)
+            return Counter()
+        return Counter(tokens)
 
 
 class PygmentsParser:
@@ -153,20 +153,19 @@ class PygmentsParser:
             return fin.read()
 
     @staticmethod
-    def get_tokens(file: str, lang: str) -> Tuple[Counter, set]:
+    def get_tokens(file: str, lang: str) -> Counter:
         """
-        Gather a Counter object of tokens in the file and their count, as well as a set of all
-        encountered tokens.
+        Gather a Counter object of tokens in the file and their count.
         :param file: the path to the file.
         :param lang: the language of file.
-        :return: a Counter object of items: token and count, and a set of all tokens.
+        :return: a Counter object of items: token and count.
         """
         content = PygmentsParser.read_file(file)
         tokens = []
         for pair in pygments.lex(content, PygmentsParser.LEXERS[lang]):
             if any(pair[0] in sublist for sublist in PygmentsParser.TYPES[lang]):
                 tokens.extend(list(Subtokenizer.process_token(pair[1])))
-        return Counter(tokens), set(tokens)
+        return Counter(tokens)
 
 
 def cmdline(command: str) -> str:
@@ -198,9 +197,9 @@ def clone_repository(repository: str, directory: str) -> None:
 def recognize_languages(directory: str) -> dict:
     """
     Recognize the languages in the directory using Enry and return a dictionary
-        {langauge1: [files], language2: [files], ...}.
+        {language1: [files], language2: [files], ...}.
     :param directory: the path to the directory.
-    :return: dictionary {langauge1: [files], language2: [files], ...}
+    :return: dictionary {language1: [files], language2: [files], ...}
     """
     return json.loads(cmdline("{enry_loc} -json -mode files {directory}"
                               .format(enry_loc=get_enry(), directory=directory)))
@@ -235,13 +234,12 @@ def create_chunks(lst: List[Any]) -> List[List[Any]]:
         return np.array_split(lst, chunk_size)
 
 
-def get_tokens(file: str, lang: str) -> Tuple[Counter, set]:
+def get_tokens(file: str, lang: str) -> Counter:
     """
-    Gather a Counter object of tokens in the file and their count, as well as a set of all
-    encountered tokens.
+    Gather a Counter object of tokens in the file and their count.
     :param file: the path to the file.
     :param lang: the language of file.
-    :return: a Counter object of items: token and count, and a set of all tokens.
+    :return: a Counter object of items: token and count.
     """
     if SUPPORTED_LANGUAGES[lang] == "tree-sitter":
         return TreeSitterParser.get_tokens(file, lang)
@@ -251,22 +249,19 @@ def get_tokens(file: str, lang: str) -> Tuple[Counter, set]:
 
 def get_tokens_from_list(files_list: List[Tuple[str, str]]) -> Tuple[Counter, set]:
     """
-    Gather the tokens of all the files in the list into a single Counter object, as well
-    as a set of all the tokens.
+    Gather the tokens of all the files in the list into a single Counter object.
     :param files_list: the list of the paths to files and their languages.
-    :return: a Counter object of items: token and count and a set of all tokens.
+    :return: a Counter object of items: token and count.
     """
     tokens = Counter()
-    vocab = set()
     for file in files_list:
         try:
-            file_tokens, file_vocab = get_tokens(file[0], file[1])
+            file_tokens = get_tokens(file[0], file[1])
             tokens = tokens + file_tokens
-            vocab.update(file_vocab)
         except UnicodeDecodeError:
             continue
 
-    return tokens, vocab
+    return tokens
 
 
 def transform_tokens(tokens: Counter, token2number: dict) -> List[str]:
@@ -323,8 +318,8 @@ def tokenize_repositories(repositories_file: str, output_dir: str, batch_size: i
                     chunk_results = pool([delayed(get_tokens_from_list)(chunk)
                                          for chunk in create_chunks(files)])
                 for chunk_result in chunk_results:
-                    tokens += chunk_result[0]  # Tokens are unique for every repository
-                    vocab.update(chunk_result[1])  # Vocabulary is compiled for the entire batch
+                    tokens += chunk_result  # Tokens are unique for every repository
+                    vocab.update(chunk_result.keys())  # Vocab is compiled for the entire batch
                 if len(tokens) != 0:  # Skipping the possible empty repositories
                     rep2tokens[repository] = tokens
             token2number = {}
