@@ -258,7 +258,7 @@ def get_tokens_from_list(files_list: List[Tuple[str, str]]) -> Tuple[Counter, se
         try:
             file_tokens = get_tokens(file[0], file[1])
             tokens = tokens + file_tokens
-        except UnicodeDecodeError:
+        except (UnicodeDecodeError, FileNotFoundError):
             continue
 
     return tokens
