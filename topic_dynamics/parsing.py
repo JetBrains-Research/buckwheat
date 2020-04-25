@@ -144,7 +144,7 @@ class PygmentsParser:
     TYPES = {"Scala": {pygments.token.Name, pygments.token.Keyword.Type},
              "Swift": {pygments.token.Name},
              "Kotlin": {pygments.token.Name},
-             "Haskell": {pygments.token.Name}}
+             "Haskell": {pygments.token.Name, pygments.token.Keyword.Type}}
 
     @staticmethod
     def read_file(file: str) -> str:
