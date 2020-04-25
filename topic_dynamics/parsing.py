@@ -5,6 +5,7 @@ from collections import Counter
 import json
 from operator import itemgetter
 import os
+from pygments.lexers.haskell import HaskellLexer
 from pygments.lexers.jvm import KotlinLexer, ScalaLexer
 from pygments.lexers.objective import SwiftLexer
 import pygments
@@ -40,7 +41,8 @@ SUPPORTED_LANGUAGES = {"JavaScript": "tree-sitter",
                        "Shell": "tree-sitter",
                        "Rust": "tree-sitter",
                        "Swift": "pygments",
-                       "Kotlin": "pygments"}
+                       "Kotlin": "pygments",
+                       "Haskell": "pygments"}
 
 
 class TreeSitterParser:
@@ -136,11 +138,13 @@ class TreeSitterParser:
 class PygmentsParser:
     LEXERS = {"Scala": ScalaLexer(),
               "Swift": SwiftLexer(),
-              "Kotlin": KotlinLexer()}
+              "Kotlin": KotlinLexer(),
+              "Haskell": HaskellLexer()}
 
     TYPES = {"Scala": {pygments.token.Name, pygments.token.Keyword.Type},
              "Swift": {pygments.token.Name},
-             "Kotlin": {pygments.token.Name}}
+             "Kotlin": {pygments.token.Name},
+             "Haskell": {pygments.token.Name}}
 
     @staticmethod
     def read_file(file: str) -> str:

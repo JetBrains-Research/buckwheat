@@ -28,4 +28,4 @@ Every step of the pipeline can be modified:
 3. Subtokenization can be modified in `subtokenizing.py`. The tokens can be connected together, stemmed, filtered by length, etc.
 
 ## Supported languages
-Currently, the following languages are supported: C, C#, C++, Go, Java, JavaScript, Kotlin, PHP, Python, Ruby, Rust, Scala, Shell, Swift, and TypeScript.
+Currently, the following languages are supported: C, C#, C++, Go, Haskell, Java, JavaScript, Kotlin, PHP, Python, Ruby, Rust, Scala, Shell, Swift, and TypeScript.
