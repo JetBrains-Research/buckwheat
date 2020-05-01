@@ -11,10 +11,9 @@ from pygments.lexers.objective import SwiftLexer
 import pygments
 from subprocess import PIPE, Popen
 from tempfile import TemporaryDirectory
-from typing import Any, Dict, List, Tuple
+from typing import Dict, List, Tuple
 
 from joblib import cpu_count, delayed, Parallel
-import numpy as np
 from tqdm import tqdm
 import tree_sitter
 
@@ -224,19 +223,6 @@ def transform_files_list(lang2files: Dict[str, str], directory: str) -> List[Tup
     return files
 
 
-def create_chunks(lst: List[Any]) -> List[List[Any]]:
-    """
-    Transform a list into approximately equal lists for multiprocessing.
-    :param lst: a list.
-    :return: a list of approximately equal lists.
-    """
-    n_files = len(lst)
-    if n_files < PROCESSES:
-        return [lst, [] * (PROCESSES - 1)]
-    else:
-        return np.array_split(lst, PROCESSES)
-
-
 def get_tokens(file: str, lang: str) -> Counter:
     """
     Gather a Counter object of tokens in the file and their count.
@@ -244,27 +230,13 @@ def get_tokens(file: str, lang: str) -> Counter:
     :param lang: the language of file.
     :return: a Counter object of items: token and count.
     """
-    if SUPPORTED_LANGUAGES[lang] == "tree-sitter":
-        return TreeSitterParser.get_tokens(file, lang)
-    else:
-        return PygmentsParser.get_tokens(file, lang)
-
-
-def get_tokens_from_list(files_list: List[Tuple[str, str]]) -> Tuple[Counter, set]:
-    """
-    Gather the tokens of all the files in the list into a single Counter object.
-    :param files_list: the list of the paths to files and their languages.
-    :return: a Counter object of items: token and count.
-    """
-    tokens = Counter()
-    for file in files_list:
-        try:
-            file_tokens = get_tokens(file[0], file[1])
-            tokens = tokens + file_tokens
-        except (UnicodeDecodeError, FileNotFoundError):
-            continue
-
-    return tokens
+    try:
+        if SUPPORTED_LANGUAGES[lang] == "tree-sitter":
+            return TreeSitterParser.get_tokens(file, lang)
+        else:
+            return PygmentsParser.get_tokens(file, lang)
+    except (UnicodeDecodeError, FileNotFoundError):
+        return Counter()
 
 
 def transform_tokens(tokens: Counter, token2number: dict) -> List[str]:
@@ -318,8 +290,7 @@ def tokenize_repositories(repositories_file: str, output_dir: str, batch_size: i
                     clone_repository(repository, td)
                     lang2files = recognize_languages(td)
                     files = transform_files_list(lang2files, td)
-                    chunk_results = pool([delayed(get_tokens_from_list)(chunk)
-                                         for chunk in create_chunks(files)])
+                    chunk_results = pool([delayed(get_tokens)(file[0], file[1]) for file in files])
                 for chunk_result in chunk_results:
                     tokens += chunk_result  # Tokens are unique for every repository
                     vocab.update(chunk_result.keys())  # Vocab is compiled for the entire batch

@@ -1,5 +1,4 @@
 joblib==0.14.1
-numpy==1.18.1
 Pygments==2.5.2
 tqdm==4.43.0
 tree_sitter==0.1.0
