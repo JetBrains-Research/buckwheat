@@ -234,8 +234,7 @@ def create_chunks(lst: List[Any]) -> List[List[Any]]:
     if n_files < PROCESSES:
         return [lst, [] * (PROCESSES - 1)]
     else:
-        chunk_size = len(lst) // PROCESSES
-        return np.array_split(lst, chunk_size)
+        return np.array_split(lst, PROCESSES)
 
 
 def get_tokens(file: str, lang: str) -> Counter:
