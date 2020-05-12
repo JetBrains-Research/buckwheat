@@ -40,10 +40,9 @@ class TokenParser:
     #                                                  'very', '_', 'strange']
     # NAME_BREAKUP_RE.split(token) -> ['Var', 'WithStrangeNAMING', 'very', 'strange']
     STEM_THRESHOLD = 6  # We do not stem split parts shorter than or equal to this size.
-    # TODO: consider hyperparameters
     MAX_TOKEN_LENGTH = 256  # We cut identifiers longer than this value.
-    MIN_SPLIT_LENGTH = 2  # We do not split source code identifiers shorter than this value.
-    DEFAULT_SINGLE_SHOT = True  # True if we do not want to join small identifiers to next one.
+    MIN_SPLIT_LENGTH = 3  # We do not split source code identifiers shorter than this value.
+    DEFAULT_SINGLE_SHOT = False  # True if we do not want to join small identifiers to next one.
     # Example: 'sourced.ml.algorithms' -> ["sourc", "sourcedml", "algorithm", "mlalgorithm"].
     # if True we have only ["sourc", "algorithm"].
     # if you do not want to filter small tokens set min_split_length=1.
@@ -109,7 +108,7 @@ class TokenParser:
 
     def process_token(self, token):
         for word in self.split(token):
-            yield word  # self.stem(word) TODO: consider stemming
+            yield self.stem(word)
 
     def stem(self, word):
         if len(word) <= self.stem_threshold:
