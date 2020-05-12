@@ -108,7 +108,7 @@ class TokenParser:
 
     def process_token(self, token):
         for word in self.split(token):
-            yield self.stem(word)
+            yield self.stem(word) # yield word to skipp the stemming
 
     def stem(self, word):
         if len(word) <= self.stem_threshold:

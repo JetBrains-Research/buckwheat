@@ -256,14 +256,17 @@ def transform_tokens(tokens: Counter, token2number: dict) -> List[str]:
     return formatted_tokens
 
 
-def tokenize_repositories(repositories_file: str, output_dir: str, batch_size: int) -> None:
+def tokenize_repositories(repositories_file: str, output_dir: str,
+                          batch_size: int, local: bool) -> None:
     """
-    Given the list of links to GitHub, tokenize all the repositories in the list,
+    Given the list of links to repositories, tokenize all the repositories in the list,
     writing them in batches to files, a single repository per line, vocabulary separately.
     When run several times, overwrites the data.
-    :param repositories_file: path to text file with a list of repositories links on GitHub.
+    :param repositories_file: path to text file with a list of repositories.
     :param output_dir: path to the output directory.
     :param batch_size: the number of repositories to be grouped into a single batch.
+    :param local: True if tokenizing in local mode (the input file contains paths to directories),
+                  False if tokenizing in default mode (the input file contains GitHub links)
     :return: None.
     """
     print("Tokenizing the repositories.")
@@ -286,10 +289,16 @@ def tokenize_repositories(repositories_file: str, output_dir: str, batch_size: i
             # Iterating over repositories in the batch
             for repository in tqdm(batch):
                 tokens = Counter()
-                with TemporaryDirectory() as td:
-                    clone_repository(repository, td)
-                    lang2files = recognize_languages(td)
-                    files = transform_files_list(lang2files, td)
+                if not local:
+                    with TemporaryDirectory() as td:
+                        clone_repository(repository, td)
+                        lang2files = recognize_languages(td)
+                        files = transform_files_list(lang2files, td)
+                        chunk_results = pool([delayed(get_tokens)(file[0], file[1])
+                                              for file in files])
+                else:
+                    lang2files = recognize_languages(repository)
+                    files = transform_files_list(lang2files, repository)
                     chunk_results = pool([delayed(get_tokens)(file[0], file[1]) for file in files])
                 for chunk_result in chunk_results:
                     tokens += chunk_result  # Tokens are unique for every repository

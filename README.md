@@ -2,11 +2,12 @@
 A multi-language tokenizer for extracting identifiers (or, theoretically, anything else) from source code.
 ## How to use
 1. The project uses [tree-sitter](https://tree-sitter.github.io/) and its grammars as submodules, so clone the repo recursively.
-2. Create an input file with a list of links to GitHub repositories.
+2. Create an input file with a list of repositories. In the default mode, the list must contain links to GitHub, in the local mode (activated by passing the `-l` argument), the list must contain the paths to local directories.
 3. Run from the command line with `python3 -m topic_dynamics.run` and the following arguments:
     - `-i`: a path to the input file;
     - `-o`: a path to the output directory;
-    - `-b`: the size of the batch of projects that will be saved together (by default 100). 
+    - `-b`: the size of the batch of projects that will be saved together (by default 100);
+    - `-l`: if passed, switches the tokenization into the local mode, where the input file must contain the paths to local directories.
 
 For every batch, two files will be created:
 - `docword`: for every repository, all of its subtokens are listed as `id:count`, one repository per line, in descending order of counts. The ids are the same for the entire batch.
