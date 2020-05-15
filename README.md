@@ -1,7 +1,8 @@
 # Sourcer Code Identifiers
 A multi-language tokenizer for extracting identifiers (or, theoretically, anything else) from source code.
 ## How to use
-1. The project uses [tree-sitter](https://tree-sitter.github.io/) and its grammars as submodules, so clone the repo recursively.
+1. The project uses [tree-sitter](https://tree-sitter.github.io/) and its grammars as submodules, so clone the repo recursively:
+(`--recursive --shallow-submodules`)
 2. Create an input file with a list of repositories. In the default mode, the list must contain links to GitHub, in the local mode (activated by passing the `-l` argument), the list must contain the paths to local directories.
 3. Run from the command line with `python3 -m topic_dynamics.run` and the following arguments:
     - `-i`: a path to the input file;
