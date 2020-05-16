@@ -108,7 +108,7 @@ class TokenParser:
 
     def process_token(self, token):
         for word in self.split(token):
-            yield self.stem(word) # yield word to skipp the stemming
+            yield self.stem(word)
 
     def stem(self, word):
         if len(word) <= self.stem_threshold:
@@ -139,18 +139,14 @@ class TokenParser:
         def ret(name):
             r = name.lower()
             if len(name) >= self.min_split_length:
-                ret.last_subtoken = r
                 yield r
                 if ret.prev_p and not self._single_shot:
                     yield ret.prev_p + r
                     ret.prev_p = ""
             elif not self._single_shot:
                 ret.prev_p = r
-                yield ret.last_subtoken + r
-                ret.last_subtoken = ""
 
         ret.prev_p = ""
-        ret.last_subtoken = ""
 
         if self._save_token_style:
             regexp_splitter = self.NAME_BREAKUP_KEEP_DELIMITERS_RE
@@ -205,15 +201,3 @@ class TokenParser:
     def __setstate__(self, state):
         self.__dict__ = state
         self._stemmer = Stemmer.Stemmer("english")
-
-
-class NoopTokenParser:
-    """
-    One can use this class one does not want to do any parsing.
-    """
-
-    def process_token(self, token):
-        yield token
-
-    def __call__(self, token):
-        return self.process_token(token)
