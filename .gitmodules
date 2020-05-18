@@ -1,36 +1,36 @@
 [submodule "topic_dynamics/parsers/vendor/tree-sitter-c"]
-	path = topic_dynamics/parsers/vendor/tree-sitter-c
+	path = identifiers_extractor/parsers/vendor/tree-sitter-c
 	url = https://github.com/tree-sitter/tree-sitter-c
 [submodule "topic_dynamics/parsers/vendor/tree-sitter-cpp"]
-	path = topic_dynamics/parsers/vendor/tree-sitter-cpp
+	path = identifiers_extractor/parsers/vendor/tree-sitter-cpp
 	url = https://github.com/tree-sitter/tree-sitter-cpp
 [submodule "topic_dynamics/parsers/vendor/tree-sitter-c-sharp"]
-	path = topic_dynamics/parsers/vendor/tree-sitter-c-sharp
+	path = identifiers_extractor/parsers/vendor/tree-sitter-c-sharp
 	url = https://github.com/tree-sitter/tree-sitter-c-sharp
 [submodule "topic_dynamics/parsers/vendor/tree-sitter-java"]
-	path = topic_dynamics/parsers/vendor/tree-sitter-java
+	path = identifiers_extractor/parsers/vendor/tree-sitter-java
 	url = https://github.com/tree-sitter/tree-sitter-java
 [submodule "topic_dynamics/parsers/vendor/tree-sitter-python"]
-	path = topic_dynamics/parsers/vendor/tree-sitter-python
+	path = identifiers_extractor/parsers/vendor/tree-sitter-python
 	url = https://github.com/tree-sitter/tree-sitter-python
 [submodule "topic_dynamics/parsers/vendor/tree-sitter-javascript"]
-	path = topic_dynamics/parsers/vendor/tree-sitter-javascript
+	path = identifiers_extractor/parsers/vendor/tree-sitter-javascript
 	url = https://github.com/tree-sitter/tree-sitter-javascript
 [submodule "topic_dynamics/parsers/vendor/tree-sitter-go"]
-	path = topic_dynamics/parsers/vendor/tree-sitter-go
+	path = identifiers_extractor/parsers/vendor/tree-sitter-go
 	url = https://github.com/tree-sitter/tree-sitter-go
 [submodule "topic_dynamics/parsers/vendor/tree-sitter-ruby"]
-	path = topic_dynamics/parsers/vendor/tree-sitter-ruby
+	path = identifiers_extractor/parsers/vendor/tree-sitter-ruby
 	url = https://github.com/tree-sitter/tree-sitter-ruby
 [submodule "topic_dynamics/parsers/vendor/tree-sitter-typescript"]
-	path = topic_dynamics/parsers/vendor/tree-sitter-typescript
+	path = identifiers_extractor/parsers/vendor/tree-sitter-typescript
 	url = https://github.com/tree-sitter/tree-sitter-typescript
 [submodule "topic_dynamics/parsers/vendor/tree-sitter-php"]
-	path = topic_dynamics/parsers/vendor/tree-sitter-php
+	path = identifiers_extractor/parsers/vendor/tree-sitter-php
 	url = https://github.com/tree-sitter/tree-sitter-php
 [submodule "topic_dynamics/parsers/vendor/tree-sitter-bash"]
-	path = topic_dynamics/parsers/vendor/tree-sitter-bash
+	path = identifiers_extractor/parsers/vendor/tree-sitter-bash
 	url = https://github.com/tree-sitter/tree-sitter-bash
 [submodule "topic_dynamics/parsers/vendor/tree-sitter-rust"]
-	path = topic_dynamics/parsers/vendor/tree-sitter-rust
+	path = identifiers_extractor/parsers/vendor/tree-sitter-rust
 	url = https://github.com/tree-sitter/tree-sitter-rust
