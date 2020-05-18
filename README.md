@@ -1,4 +1,4 @@
-# Sourcer Code Identifiers
+# Source Code Identifiers
 A multi-language tokenizer for extracting identifiers (or, theoretically, anything else) from source code.
 ## How to use
 1. The project uses [tree-sitter](https://tree-sitter.github.io/) and its grammars as submodules, so clone the repo recursively:
