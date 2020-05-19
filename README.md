@@ -1,3 +1,5 @@
+[![JetBrains Research](https://jb.gg/badges/research.svg)](https://confluence.jetbrains.com/display/ALL/JetBrains+on+GitHub)
+
 # Source Code Identifiers
 A multi-language tokenizer for extracting identifiers (or, theoretically, anything else) from source code.
 ## How to use
