@@ -1,0 +1,35 @@
+# This workflow will install Python dependencies and run tests with a single version of Python
+# For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
+
+name: Linux|MacOS|Windows CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        platform: [ubuntu-latest, macos-latest, windows-latest]
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python 3.8
+      uses: actions/setup-python@v1
+      with:
+        python-version: 3.8
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install cython
+        pip install -r requirements.txt
+    - name: Test with Unittest
+      run: |
+        python -m identifiers_extractor.parsers
+        python -m identifiers_extractor.language_recognition
+        python -m unittest discover identifiers_extractor.tests -t .
