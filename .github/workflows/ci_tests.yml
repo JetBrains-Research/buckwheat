@@ -30,6 +30,7 @@ jobs:
         pip install -r requirements.txt
     - name: Test with Unittest
       run: |
+        git submodule update --init --recursive --depth 1
         python -m identifiers_extractor.parsers
         python -m identifiers_extractor.language_recognition
         python -m unittest discover identifiers_extractor.tests -t .
