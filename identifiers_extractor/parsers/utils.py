@@ -22,7 +22,7 @@ def get_tree_sitter_so() -> str:
     :return: absolute path.
     """
     tree_sitter_dir = get_tree_sitter_dir()
-    bin_loc = os.path.join(tree_sitter_dir, "build/langs.so")
+    bin_loc = os.path.join(tree_sitter_dir, "build", "langs.so")
     return bin_loc
 
 
@@ -34,20 +34,20 @@ def main() -> None:
     # root directory for tree-sitter
     tree_sitter_dir = get_tree_sitter_dir()
     # grammar locations
-    javascript_grammar_loc = os.path.join(tree_sitter_dir, "vendor/tree-sitter-javascript")
-    java_grammar_loc = os.path.join(tree_sitter_dir, "vendor/tree-sitter-java")
-    python_grammar_loc = os.path.join(tree_sitter_dir, "vendor/tree-sitter-python")
-    go_grammar_loc = os.path.join(tree_sitter_dir, "vendor/tree-sitter-go")
-    cpp_grammar_loc = os.path.join(tree_sitter_dir, "vendor/tree-sitter-cpp")
-    ruby_grammar_loc = os.path.join(tree_sitter_dir, "vendor/tree-sitter-ruby")
+    javascript_grammar_loc = os.path.join(tree_sitter_dir, "vendor", "tree-sitter-javascript")
+    java_grammar_loc = os.path.join(tree_sitter_dir, "vendor", "tree-sitter-java")
+    python_grammar_loc = os.path.join(tree_sitter_dir, "vendor", "tree-sitter-python")
+    go_grammar_loc = os.path.join(tree_sitter_dir, "vendor", "tree-sitter-go")
+    cpp_grammar_loc = os.path.join(tree_sitter_dir, "vendor", "tree-sitter-cpp")
+    ruby_grammar_loc = os.path.join(tree_sitter_dir, "vendor", "tree-sitter-ruby")
     typescript_grammar_loc = os.path.join(tree_sitter_dir,
-                                          "vendor/tree-sitter-typescript/typescript")
-    tsx_grammar_loc = os.path.join(tree_sitter_dir, "vendor/tree-sitter-typescript/tsx")
-    php_grammar_loc = os.path.join(tree_sitter_dir, "vendor/tree-sitter-php")
-    c_sharp_grammar_loc = os.path.join(tree_sitter_dir, "vendor/tree-sitter-c-sharp")
-    c_grammar_loc = os.path.join(tree_sitter_dir, "vendor/tree-sitter-c")
-    bash_grammar_loc = os.path.join(tree_sitter_dir, "vendor/tree-sitter-bash")
-    rust_grammar_loc = os.path.join(tree_sitter_dir, "vendor/tree-sitter-rust")
+                                          "vendor", "tree-sitter-typescript", "typescript")
+    tsx_grammar_loc = os.path.join(tree_sitter_dir, "vendor", "tree-sitter-typescript", "tsx")
+    php_grammar_loc = os.path.join(tree_sitter_dir, "vendor", "tree-sitter-php")
+    c_sharp_grammar_loc = os.path.join(tree_sitter_dir, "vendor", "tree-sitter-c-sharp")
+    c_grammar_loc = os.path.join(tree_sitter_dir, "vendor", "tree-sitter-c")
+    bash_grammar_loc = os.path.join(tree_sitter_dir, "vendor", "tree-sitter-bash")
+    rust_grammar_loc = os.path.join(tree_sitter_dir, "vendor", "tree-sitter-rust")
     # location for library
     bin_loc = get_tree_sitter_so()
     # build everything
