@@ -8,15 +8,12 @@ import urllib.request
 DOWNLOAD_URLS = {
     "Linux":
         "https://github.com/go-enry/enry/releases/download/v1.0.0/enry-v1.0.0-linux-amd64.tar.gz",
-    "Windows":
-        "https://drive.google.com/uc?export=download&id=1mRsJfZXbXF684eM3ONefwzmIIga2vLIx",
     "Darwin":
         "https://github.com/go-enry/enry/releases/download/v1.0.0/enry-v1.0.0-darwin-amd64.tar.gz"
 }
 
 FILENAMES = {
     "Linux": "enry.tar.gz",
-    "Windows": "enry.exe",
     "Darwin": "enry.tar.gz"
 }
 
@@ -27,7 +24,7 @@ def identify_system() -> str:
     :return: system name.
     """
     system = platform.system()
-    if system not in ["Linux", "Windows", "Darwin"]:
+    if system not in ["Linux", "Darwin"]:
         raise ValueError(f"Unsupported system {system}")
     return system
 
@@ -46,10 +43,7 @@ def get_enry() -> str:
     :return: absolute path.
     """
     system = identify_system()
-    if system == "Windows":
-        return os.path.abspath(os.path.join(get_enry_dir(), "enry.exe"))
-    else:
-        return os.path.abspath(os.path.join(get_enry_dir(), "enry"))
+    return os.path.abspath(os.path.join(get_enry_dir(), "enry"))
 
 
 def main() -> None:
@@ -63,7 +57,7 @@ def main() -> None:
     if not os.path.exists(os.path.abspath(os.path.join(get_enry_dir(), filename))):
         urllib.request.urlretrieve(url,
                                    os.path.abspath(os.path.join(get_enry_dir(), filename)))
-    if (not system == "Windows") and (not os.path.exists(get_enry())):
+    if not os.path.exists(get_enry()):
         os.system("tar -xzf {tar} -C {directory}"
                   .format(tar=os.path.abspath(os.path.join(get_enry_dir(), filename)),
                           directory=get_enry_dir()))

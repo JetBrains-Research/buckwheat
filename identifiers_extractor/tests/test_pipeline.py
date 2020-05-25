@@ -5,7 +5,6 @@ from collections import Counter
 import os
 import unittest
 
-from ..language_recognition.utils import identify_system
 from ..parsing import cmdline, recognize_languages, transform_files_list, transform_tokens, \
     tokenize_repositories
 
@@ -14,13 +13,9 @@ tests_dir = os.path.abspath(os.path.dirname(__file__))
 
 class TestPipeline(unittest.TestCase):
     def test_cmdline(self):
-        system = identify_system()
         command = "echo 'Darina'"
         stdout = cmdline(command)
-        if system == "Windows":
-            self.assertEqual(stdout, "'Darina'\r\n")
-        else:
-            self.assertEqual(stdout, "Darina\n")
+        self.assertEqual(stdout, "Darina\n")
 
     def test_languages(self):
         lang2files = recognize_languages(os.path.abspath(os.path.join(tests_dir, "test_files")))
