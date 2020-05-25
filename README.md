@@ -1,12 +1,25 @@
 [![JetBrains Research](https://jb.gg/badges/research.svg)](https://confluence.jetbrains.com/display/ALL/JetBrains+on+GitHub)
+![Linux & MacOS build](https://github.com/JetBrains-Research/identifiers-extractor/workflows/Linux%20&%20MacOS%20CI/badge.svg)
 
 # Source Code Identifiers
 A multi-language tokenizer for extracting identifiers (or, theoretically, anything else) from source code.
 ## How to use
-1. The project uses [tree-sitter](https://tree-sitter.github.io/) and its grammars as submodules, so clone the repo recursively:
-(`--recursive --shallow-submodules`)
-2. Create an input file with a list of repositories. In the default mode, the list must contain links to GitHub, in the local mode (activated by passing the `-l` argument), the list must contain the paths to local directories.
-3. Run from the command line with `python3 -m identifiers_extractor.run` and the following arguments:
+The tool currently works on Linux and MacOS, correct versions of files will be downloaded automatically. 
+1. The project uses [tree-sitter](https://tree-sitter.github.io/) and its grammars as submodules, so update them after cloning: 
+
+    ```shell script
+    git submodule update --init --recursive --depth 1
+    ```
+    
+2. Install the required dependencies:
+    
+    ```shell script
+    pip3 install cython
+    pip3 install -r requirements.txt
+    ```
+    
+3. Create an input file with a list of repositories. In the default mode, the list must contain links to GitHub, in the local mode (activated by passing the `-l` argument), the list must contain the paths to local directories.
+4. Run from the command line with `python3 -m identifiers_extractor.run` and the following arguments:
     - `-i`: a path to the input file;
     - `-o`: a path to the output directory;
     - `-b`: the size of the batch of projects that will be saved together (by default 100);
