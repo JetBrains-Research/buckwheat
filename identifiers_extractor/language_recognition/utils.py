@@ -20,7 +20,7 @@ FILENAMES = {
 
 def identify_system() -> str:
     """
-    Get the system name. Supported systems are Linux, Windows, and Darwin (MacOS).
+    Get the system name. Supported systems are Linux and Darwin (MacOS).
     :return: system name.
     """
     system = platform.system()
@@ -42,7 +42,6 @@ def get_enry() -> str:
     Get the path to the Enry binary.
     :return: absolute path.
     """
-    system = identify_system()
     return os.path.abspath(os.path.join(get_enry_dir(), "enry"))
 
 
