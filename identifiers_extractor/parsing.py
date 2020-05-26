@@ -188,11 +188,12 @@ def cmdline(command: str) -> str:
 def clone_repository(repository: str, directory: str) -> None:
     """
     Clone a given repository into a folder.
-    :param repository: a link to GitHub repository.
+    :param repository: a link to GitHub repository, either HTTP or HTTPs.
     :param directory: path to target directory to clone the repository.
     :return: None.
     """
-    repository = repository[:8] + "user:password@" + repository[8:]
+    body = repository.split("://")[1]
+    repository = "https://user:password@" + body
     os.system("git clone --quiet --depth 1 {repository} {directory}".format(repository=repository,
                                                                             directory=directory))
 
