@@ -1,1 +1,2 @@
 identifiers_extractor/tests/test_files/
+wrong/path/to/directory/

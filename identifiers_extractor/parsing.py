@@ -192,7 +192,10 @@ def clone_repository(repository: str, directory: str) -> None:
     :param directory: path to target directory to clone the repository.
     :return: None.
     """
-    body = repository.split("://")[1]
+    if "://" in repository:
+        body = repository.split("://")[1]
+    else:
+        raise ValueError("{repository} is not a valid link!".format(repository=repository))
     repository = "https://user:password@" + body
     os.system("git clone --quiet --depth 1 {repository} {directory}".format(repository=repository,
                                                                             directory=directory))
@@ -292,12 +295,22 @@ def tokenize_repositories(repositories_file: str, output_dir: str,
                 tokens = Counter()
                 if not local:
                     with TemporaryDirectory() as td:
-                        clone_repository(repository, td)
+                        try:
+                            clone_repository(repository, td)
+                        except ValueError:
+                            print("{repository} is not a valid link!"
+                                  .format(repository=repository))
+                            continue
                         lang2files = recognize_languages(td)
                         files = transform_files_list(lang2files, td)
                         chunk_results = pool([delayed(get_tokens)(file[0], file[1])
                                               for file in files])
                 else:
+                    try:
+                        assert os.path.isdir(repository)
+                    except AssertionError:
+                        print("{repository} doesn't exist!".format(repository=repository))
+                        continue
                     lang2files = recognize_languages(repository)
                     files = transform_files_list(lang2files, repository)
                     chunk_results = pool([delayed(get_tokens)(file[0], file[1]) for file in files])
