@@ -3,6 +3,9 @@
 
 # Source Code Identifiers
 A multi-language tokenizer for extracting identifiers (or, theoretically, anything else) from source code.
+
+The tool is already employed in [searching for similar repositories](https://github.com/JetBrains-Research/similar-repositories/) and [studying the dynamics of topics in code](https://github.com/areyde/topic-dynamics).
+
 ## How to use
 The tool currently works on Linux and MacOS, correct versions of files will be downloaded automatically. 
 1. The project uses [tree-sitter](https://tree-sitter.github.io/) and its grammars as submodules, so update them after cloning: 
