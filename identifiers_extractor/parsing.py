@@ -25,23 +25,11 @@ Subtokenizer = TokenParser()
 
 PROCESSES = cpu_count()
 
-SUPPORTED_LANGUAGES = {"JavaScript": "tree-sitter",
-                       "Python": "tree-sitter",
-                       "Java": "tree-sitter",
-                       "Go": "tree-sitter",
-                       "C++": "tree-sitter",
-                       "Ruby": "tree-sitter",
-                       "TypeScript": "tree-sitter",
-                       "TSX": "tree-sitter",
-                       "PHP": "tree-sitter",
-                       "C#": "tree-sitter",
-                       "C": "tree-sitter",
-                       "Scala": "pygments",
-                       "Shell": "tree-sitter",
-                       "Rust": "tree-sitter",
-                       "Swift": "pygments",
-                       "Kotlin": "pygments",
-                       "Haskell": "pygments"}
+SUPPORTED_LANGUAGES = {"tree-sitter": {"JavaScript", "Python", "Java", "Go", "C++", "Ruby",
+                                       "TypeScript", "TSX", "PHP", "C#", "C", "Shell", "Rust"},
+                       "pygments": {"Scala", "Swift", "Kotlin", "Haskell"},
+                       "classes": {},
+                       "functions": {}}
 
 
 class TreeSitterParser:
@@ -59,33 +47,23 @@ class TreeSitterParser:
                "Shell": "bash",
                "Rust": "rust"}
 
-    NODE_TYPES = {"JavaScript": {"identifier", "property_identifier",
-                                 "shorthand_property_identifier"},
-                  "Python": {"identifier"},
-                  "Java": {"identifier", "type_identifier"},
-                  "Go": {"identifier", "field_identifier", "type_identifier"},
-                  "C++": {"identifier", "namespace_identifier", "field_identifier",
-                          "type_identifier"},
-                  "Ruby": {"identifier", "constant", "symbol"},
-                  "TypeScript": {"identifier", "property_identifier",
-                                 "shorthand_property_identifier", "type_identifier"},
-                  "TSX": {"identifier", "property_identifier",
-                          "shorthand_property_identifier", "type_identifier"},
-                  "PHP": {"name"},
-                  "C#": {"identifier"},
-                  "C": {"identifier", "field_identifier", "type_identifier"},
-                  "Shell": {"variable_name", "command_name"},
-                  "Rust": {"identifier", "field_identifier", "type_identifier"}}
-
-    @staticmethod
-    def read_file_bytes(file: str) -> bytes:
-        """
-        Read the contents of the file.
-        :param file: the path to the file.
-        :return: bytes with the contents of the file.
-        """
-        with open(file) as fin:
-            return bytes(fin.read(), "utf-8")
+    IDENTIFIERS = {"JavaScript": {"identifier", "property_identifier",
+                                  "shorthand_property_identifier"},
+                   "Python": {"identifier"},
+                   "Java": {"identifier", "type_identifier"},
+                   "Go": {"identifier", "field_identifier", "type_identifier"},
+                   "C++": {"identifier", "namespace_identifier", "field_identifier",
+                           "type_identifier"},
+                   "Ruby": {"identifier", "constant", "symbol"},
+                   "TypeScript": {"identifier", "property_identifier",
+                                  "shorthand_property_identifier", "type_identifier"},
+                   "TSX": {"identifier", "property_identifier",
+                           "shorthand_property_identifier", "type_identifier"},
+                   "PHP": {"name"},
+                   "C#": {"identifier"},
+                   "C": {"identifier", "field_identifier", "type_identifier"},
+                   "Shell": {"variable_name", "command_name"},
+                   "Rust": {"identifier", "field_identifier", "type_identifier"}}
 
     @staticmethod
     def get_positional_bytes(node: tree_sitter.Node) -> Tuple[int, int]:
@@ -99,15 +77,18 @@ class TreeSitterParser:
         return start, end
 
     @staticmethod
-    def get_tokens(file: str, lang: str) -> Counter:
+    def get_tokens(code: str, lang: str) -> Counter:
         """
         Gather a Counter object of tokens in the file and their count.
-        :param file: the path to the file.
+        :param code: the code to parse.
         :param lang: the language of file.
         :return: a Counter object of items: token and count.
         """
-        content = TreeSitterParser.read_file_bytes(file)
-        tree = get_parser(TreeSitterParser.PARSERS[lang]).parse(content)
+        try:
+            code = bytes(code, "utf-8")
+        except UnicodeDecodeError:
+            return Counter()
+        tree = get_parser(TreeSitterParser.PARSERS[lang]).parse(code)
         root = tree.root_node
         tokens = []
 
@@ -118,9 +99,9 @@ class TreeSitterParser:
             :return: None.
             """
             for child in node.children:
-                if child.type in TreeSitterParser.NODE_TYPES[lang]:
+                if child.type in TreeSitterParser.IDENTIFIERS[lang]:
                     start, end = TreeSitterParser.get_positional_bytes(child)
-                    token = content[start:end].decode("utf-8")
+                    token = code[start:end].decode("utf-8")
                     if "\n" not in token:  # Will break output files.
                         subtokens = list(Subtokenizer.process_token(token))
                         tokens.extend(subtokens)
@@ -140,33 +121,22 @@ class PygmentsParser:
               "Kotlin": KotlinLexer(),
               "Haskell": HaskellLexer()}
 
-    TYPES = {"Scala": {pygments.token.Name, pygments.token.Keyword.Type},
-             "Swift": {pygments.token.Name},
-             "Kotlin": {pygments.token.Name},
-             "Haskell": {pygments.token.Name, pygments.token.Keyword.Type}}
+    IDENTIFIERS = {"Scala": {pygments.token.Name, pygments.token.Keyword.Type},
+                   "Swift": {pygments.token.Name},
+                   "Kotlin": {pygments.token.Name},
+                   "Haskell": {pygments.token.Name, pygments.token.Keyword.Type}}
 
     @staticmethod
-    def read_file(file: str) -> str:
-        """
-        Read the contents of the file.
-        :param file: the path to the file.
-        :return: the contents of the file.
-        """
-        with open(file) as fin:
-            return fin.read()
-
-    @staticmethod
-    def get_tokens(file: str, lang: str) -> Counter:
+    def get_tokens(code: str, lang: str) -> Counter:
         """
         Gather a Counter object of tokens in the file and their count.
-        :param file: the path to the file.
+        :param code: the code to parse.
         :param lang: the language of file.
         :return: a Counter object of items: token and count.
         """
-        content = PygmentsParser.read_file(file)
         tokens = []
-        for pair in pygments.lex(content, PygmentsParser.LEXERS[lang]):
-            if any(pair[0] in sublist for sublist in PygmentsParser.TYPES[lang]):
+        for pair in pygments.lex(code, PygmentsParser.LEXERS[lang]):
+            if any(pair[0] in sublist for sublist in PygmentsParser.IDENTIFIERS[lang]):
                 tokens.extend(list(Subtokenizer.process_token(pair[1])))
         return Counter(tokens)
 
@@ -182,15 +152,15 @@ def cmdline(command: str) -> str:
         stdout=PIPE,
         shell=True
     )
-    return process.communicate()[0].decode("utf8")
+    return process.communicate()[0].decode("utf8").rstrip()
 
 
-def clone_repository(repository: str, directory: str) -> None:
+def clone_repository(repository: str, directory: str) -> str:
     """
     Clone a given repository into a folder.
     :param repository: a link to GitHub repository, either HTTP or HTTPs.
     :param directory: path to target directory to clone the repository.
-    :return: None.
+    :return: the name of the default branch.
     """
     if "://" in repository:
         body = repository.split("://")[1]
@@ -199,6 +169,7 @@ def clone_repository(repository: str, directory: str) -> None:
     repository = "https://user:password@" + body
     os.system("git clone --quiet --depth 1 {repository} {directory}".format(repository=repository,
                                                                             directory=directory))
+    return cmdline("cd {directory}; git rev-parse --abbrev-ref HEAD".format(directory=directory))
 
 
 def recognize_languages(directory: str) -> dict:
@@ -212,46 +183,87 @@ def recognize_languages(directory: str) -> dict:
                               .format(enry_loc=get_enry(), directory=directory)))
 
 
-def transform_files_list(lang2files: Dict[str, str], directory: str) -> List[Tuple[str, str]]:
+def transform_files_list(lang2files: Dict[str, str], gran: str) -> List[Tuple[str, str]]:
     """
     Transform the output of Enry on a directory into a list of tuples (full_path_to_file, lang).
     :param lang2files: the dictionary output of Enry: {language: [files], ...}.
-    :param directory: the full path to the directory that was processed with Enry.
-    :return: a list of tuples (full_path_to_file, lang) for the supported languages.
+    :param gran: the granularity of parsing.
+    :return: a list of tuples (full_path_to_file, lang) for the necessary languages.
     """
+    if gran == "projects" or gran == "files":
+        langs = SUPPORTED_LANGUAGES["tree-sitter"] | SUPPORTED_LANGUAGES["pygments"]
+    elif gran == "classes":
+        langs = SUPPORTED_LANGUAGES["classes"]
+    elif gran == "functions":
+        langs = SUPPORTED_LANGUAGES["functions"]
+    else:
+        raise ValueError("Incorrect granularity of parsing.")
     files = []
     for lang in lang2files.keys():
-        if lang in SUPPORTED_LANGUAGES.keys():
+        if lang in langs:
             for file in lang2files[lang]:
-                files.append((os.path.abspath(os.path.join(directory, file)), lang))
+                files.append((file, lang))
     return files
 
 
-def get_tokens(file: str, lang: str) -> Counter:
+def read_file(file: str) -> str:
+    """
+    Read the contents of the file.
+    :param file: the path to the file.
+    :return: the contents of the file.
+    """
+    with open(file) as fin:
+        return fin.read()
+
+
+def get_full_path(file: str, directory: str) -> str:
+    """
+    Get the full path to file from the full path to a directory and a relative path to that
+    file in that directory.
+    :param file: the relative path to file in a directory.
+    :param directory: the full path of a directory.
+    :return: the full path to file.
+    """
+    return os.path.abspath(os.path.join(directory, file))
+
+
+def get_tokens(code: str, lang: str) -> Counter:
     """
     Gather a Counter object of tokens in the file and their count.
-    :param file: the path to the file.
-    :param lang: the language of file.
+    :param code: the code to parse.
+    :param lang: the language of code.
     :return: a Counter object of items: token and count.
     """
+    if lang in SUPPORTED_LANGUAGES["tree-sitter"]:
+        return TreeSitterParser.get_tokens(code, lang)
+    elif lang in SUPPORTED_LANGUAGES["pygments"]:
+        return PygmentsParser.get_tokens(code, lang)
+    else:
+        raise ValueError("Unknown language.")
+
+
+def get_tokens_from_file(file: str, lang: str) -> Tuple[str, Counter]:
+    """
+    Gather a Counter object of tokens in the file and their count,
+    return a tuple (file, Counter(token, count)).
+    :param file: the full path to the file.
+    :param lang: the language of code.
+    :return: tuple (file, Counter(token, count)).
+    """
     try:
-        if SUPPORTED_LANGUAGES[lang] == "tree-sitter":
-            return TreeSitterParser.get_tokens(file, lang)
-        else:
-            return PygmentsParser.get_tokens(file, lang)
-    except (UnicodeDecodeError, FileNotFoundError):
-        return Counter()
+        code = read_file(file)
+    except FileNotFoundError:
+        return file, Counter()
+    return file, get_tokens(code, lang)
 
 
-def transform_tokens(tokens: Counter, token2number: dict) -> List[str]:
+def transform_tokens(tokens: Counter) -> List[str]:
     """
     Transform the original list of tokens into the writable form.
     :param tokens: a Counter object of tokens and their count.
-    :param token2number: a dictionary that maps tokens to numbers.
     :return: a list of tokens in the writable form, "n_token:count".
     """
-    sorted_tokens = [[token2number[token[0]], token[1]]
-                     for token in sorted(tokens.items(), key=itemgetter(1), reverse=True)]
+    sorted_tokens = sorted(tokens.items(), key=itemgetter(0))
     formatted_tokens = []
     for token in sorted_tokens:
         formatted_tokens.append("{token}:{count}"
@@ -260,80 +272,90 @@ def transform_tokens(tokens: Counter, token2number: dict) -> List[str]:
     return formatted_tokens
 
 
-def tokenize_repositories(repositories_file: str, output_dir: str,
-                          batch_size: int, local: bool) -> None:
+def save_wabbit(bags: List[Tuple[str, Counter]], output_dir: str, filename: str) -> None:
+    """
+    Save the bags of tokens in the Vowpal Wabbit format: one bag per line, in the format
+    "name token1:count1 token2:count2...".
+    :param bags: bags of tokens that are being saved, as a list of
+                 tuples (name, Counter(token, count)).
+    :param output_dir: full path to the output directory.
+    :param filename: the name of the output file.
+    :return: none.
+    """
+    with open(os.path.abspath(os.path.join(output_dir, filename)), "a+") as fout:
+        for bag in bags:
+            fout.write("{bag} {tokens}\n"
+                       .format(bag=bag[0],
+                               tokens=" ".join(transform_tokens(bag[1]))))
+
+
+def tokenize_repositories(repositories_file: str, output_dir: str, gran: str, local: bool) -> None:
     """
     Given the list of links to repositories, tokenize all the repositories in the list,
     writing them in batches to files, a single repository per line, vocabulary separately.
     When run several times, overwrites the data.
     :param repositories_file: path to text file with a list of repositories.
     :param output_dir: path to the output directory.
-    :param batch_size: the number of repositories to be grouped into a single batch.
+    :param gran: the granularity of parsing.
     :param local: True if tokenizing in local mode (the input file contains paths to directories),
                   False if tokenizing in default mode (the input file contains GitHub links)
     :return: None.
     """
-    print("Tokenizing the repositories.")
-    # Reading the input file and splitting it into batches of necessary size
+    assert gran in {"projects", "files", "classes", "functions"}
+    print(f"Tokenizing the repositories with {gran} granularity.")
+    # Reading the input file
     assert os.path.exists(repositories_file)
     with open(repositories_file) as fin:
         repositories_list = fin.read().splitlines()
-        repositories_batches = [repositories_list[x:x+batch_size]
-                                for x in range(0, len(repositories_list), batch_size)]
     # Creating the output directory
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
-    # Processing the batches
+    # Processing the repositories
     with Parallel(PROCESSES) as pool:
-        # Iterating over batches
-        for count_batch, batch in enumerate(repositories_batches):
-            print(f"Tokenizing batch {count_batch + 1} out of {len(repositories_batches)}.")
-            rep2tokens = {}
-            vocab = set()
-            # Iterating over repositories in the batch
-            for repository in tqdm(batch):
-                tokens = Counter()
-                if not local:
-                    with TemporaryDirectory() as td:
-                        try:
-                            clone_repository(repository, td)
-                        except ValueError:
-                            print("{repository} is not a valid link!"
-                                  .format(repository=repository))
-                            continue
-                        lang2files = recognize_languages(td)
-                        files = transform_files_list(lang2files, td)
-                        chunk_results = pool([delayed(get_tokens)(file[0], file[1])
-                                              for file in files])
-                else:
+        # Iterating over repositories
+        for repository in tqdm(repositories_list):
+            files2tokens = {}
+            with TemporaryDirectory() as td:
+                if local:
+                    directory = repository
                     try:
-                        assert os.path.isdir(repository)
+                        assert os.path.isdir(directory)
                     except AssertionError:
-                        print("{repository} doesn't exist!".format(repository=repository))
+                        print("{directory} doesn't exist!".format(directory=directory))
                         continue
-                    lang2files = recognize_languages(repository)
-                    files = transform_files_list(lang2files, repository)
-                    chunk_results = pool([delayed(get_tokens)(file[0], file[1]) for file in files])
+                    repository_name = directory
+                else:
+                    directory = td
+                    try:
+                        branch = clone_repository(repository, directory)
+                    except ValueError:
+                        print("{repository} is not a valid link!"
+                              .format(repository=repository))
+                        continue
+                    if gran == "projects":
+                        repository_name = repository
+                    else:
+                        repository_name = "{repository}/blob/{branch}/".format(
+                            repository=repository, branch=branch)
+                lang2files = recognize_languages(directory)
+                files = transform_files_list(lang2files, gran)
+                chunk_results = pool([delayed(get_tokens_from_file)
+                                      (get_full_path(file[0], directory), file[1])
+                                      for file in files])
                 for chunk_result in chunk_results:
-                    tokens += chunk_result  # Tokens are unique for every repository
-                    vocab.update(chunk_result.keys())  # Vocab is compiled for the entire batch
-                if len(tokens) != 0:  # Skipping the possible empty repositories
-                    rep2tokens[repository] = tokens
-            token2number = {}
-            for number, token in enumerate(vocab):
-                token2number[token] = number
-            # Writing the tokens, one repository per line
-            with open(os.path.abspath(os.path.join(output_dir,
-                                                   f"docword{count_batch}.txt")), "w+") as fout:
-                for repository in rep2tokens.keys():
-                    fout.write("{repository};{tokens}\n"
-                               .format(repository=repository,
-                                       tokens=",".join(transform_tokens(rep2tokens[repository],
-                                                                        token2number))))
-            # Writing the vocabulary, mapping numbers to tokens
-            with open(os.path.abspath(os.path.join(output_dir,
-                                                   f"vocab{count_batch}.txt")), "w+") as fout:
-                for token in token2number.keys():
-                    fout.write("{number};{token}\n".format(number=token2number[token],
-                                                           token=token))
+                    if len(chunk_result[1]) != 0:  # Skipping the possible empty files
+                        if local:
+                            files2tokens[chunk_result[0]] = chunk_result[1]
+                        else:
+                            files2tokens[repository_name +
+                                         os.path.relpath(chunk_result[0],
+                                                         directory)] = chunk_result[1]
+            if gran == "files":
+                save_wabbit(list(files2tokens.items()), output_dir, f"wabbit_{gran}.txt")
+            elif gran == "projects":
+                repository_tokens = Counter()
+                for file_tokens in files2tokens.values():
+                    repository_tokens += file_tokens
+                save_wabbit([(repository_name, repository_tokens)],
+                            output_dir, f"wabbit_{gran}.txt")
     print("Tokenization successfully completed.")

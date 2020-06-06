@@ -16,7 +16,7 @@ def main(args: argparse.Namespace) -> None:
     initialize_parser()
     initialize_enry()
     tokenize_repositories(repositories_file=args.input, output_dir=args.output,
-                          batch_size=int(args.batches), local=args.local)
+                          gran=args.granularity, local=args.local)
 
 
 if __name__ == "__main__":
@@ -26,8 +26,11 @@ if __name__ == "__main__":
                              "GitHub in the default mode and paths to directories in the local "
                              "mode.")
     parser.add_argument("-o", "--output", required=True, help="Full path to the output directory.")
-    parser.add_argument("-b", "--batches", default=100,
-                        help="The size of the batch of projects that are saved to one file.")
+    parser.add_argument("-g", "--granularity",
+                        choices=["projects", "files", "classes", "functions"], default="files",
+                        help="The granularity level of parsing: 'projects' for the level of "
+                             "projects/directories, 'files' for the level of files, 'classes' for "
+                             "the level of classes, and 'functions' for the level of functions.")
     parser.add_argument("-l", "--local", action="store_true",
                         help="If passed, switches the tokenization into the local mode, where "
                              "the input list must contain paths to local directories.")
