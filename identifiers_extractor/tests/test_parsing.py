@@ -93,7 +93,7 @@ class TestParser(unittest.TestCase):
             with self.subTest():
                 file = os.path.abspath(os.path.join(tests_dir, "test_files", data[1]))
                 tokens = get_tokens_from_file(file, data[0])
-                self.assertEqual(tokens, (file, Counter(data[2])))
+                self.assertEqual(tokens, [(file, Counter(data[2]))])
 
 
 if __name__ == "__main__":

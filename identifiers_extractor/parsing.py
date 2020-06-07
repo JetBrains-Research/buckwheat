@@ -28,8 +28,10 @@ PROCESSES = cpu_count()
 SUPPORTED_LANGUAGES = {"tree-sitter": {"JavaScript", "Python", "Java", "Go", "C++", "Ruby",
                                        "TypeScript", "TSX", "PHP", "C#", "C", "Shell", "Rust"},
                        "pygments": {"Scala", "Swift", "Kotlin", "Haskell"},
-                       "classes": {},
-                       "functions": {}}
+                       "classes": {"JavaScript", "Python", "Java", "C++", "Ruby", "TypeScript",
+                                   "TSX", "PHP", "C#", "Rust"},
+                       "functions": {"Javascript", "Python", "Java", "Go", "C++", "Ruby",
+                                     "TypeScript", "TSX", "PHP", "C#", "C", "Shell", "Rust"}}
 
 
 class TreeSitterParser:
@@ -65,6 +67,32 @@ class TreeSitterParser:
                    "Shell": {"variable_name", "command_name"},
                    "Rust": {"identifier", "field_identifier", "type_identifier"}}
 
+    CLASSES = {"JavaScript": {"class_declaration"},
+               "Python": {"class_definition"},
+               "Java": {"class_declaration"},
+               "C++": {"class_specifier"},
+               "Ruby": {"class"},
+               "TypeScript": {"class_declaration"},
+               "TSX": {"class_declaration"},
+               "PHP": {"class_declaration"},
+               "C#": {"class_declaration"}}
+
+    FUNCTIONS = {"JavaScript": {"function", "function_declaration", "method_definition"},
+                 "Python": {"function_definition"},
+                 "Java": {"constructor_declaration", "method_declaration",
+                          "interface_declaration"},
+                 "Go": {"function_declaration", "method_declaration"},
+                 "C++": {"function_definition"},
+                 "Ruby": {"method", "singleton_method"},
+                 "TypeScript": {"function", "function_declaration", "method_definition"},
+                 "TSX": {"function", "function_declaration", "method_definition"},
+                 "PHP": {"function_definition", "method_declaration"},
+                 "C#": {"method_declaration", "indexer_declaration", "property_declaration",
+                        "constructor_declaration"},
+                 "C": {"function_definition"},
+                 "Shell": {"function_definition"},
+                 "Rust": {"function_item"}}
+
     @staticmethod
     def get_positional_bytes(node: tree_sitter.Node) -> Tuple[int, int]:
         """
@@ -75,6 +103,36 @@ class TreeSitterParser:
         start = node.start_byte
         end = node.end_byte
         return start, end
+
+    @staticmethod
+    def traverse_tree(node: tree_sitter.Node, types: set) -> List[tree_sitter.Node]:
+        """
+        Run down the AST (DFS) from a given node and gather its children of necessary types.
+        :param node: starting node.
+        :types: the set of types of interest.
+        :return: the list of nodes of necessary types.
+        """
+        nodes = []
+        for child in node.children:
+            if child.type in types:
+                nodes.append(child)
+            if len(child.children) != 0:
+                nodes.extend(TreeSitterParser.traverse_tree(child, types))
+        return nodes
+
+    @staticmethod
+    def get_tokens_from_node(code: bytes, node: tree_sitter.Node, lang: str) -> Counter:
+        try:
+            token_nodes = TreeSitterParser.traverse_tree(node, TreeSitterParser.IDENTIFIERS[lang])
+        except RecursionError:
+            return Counter()
+        tokens = []
+        for token_node in token_nodes:
+            start, end = TreeSitterParser.get_positional_bytes(token_node)
+            token = code[start:end].decode("utf-8")
+            subtokens = list(Subtokenizer.process_token(token))
+            tokens.extend(subtokens)
+        return Counter(tokens)
 
     @staticmethod
     def get_tokens(code: str, lang: str) -> Counter:
@@ -90,29 +148,47 @@ class TreeSitterParser:
             return Counter()
         tree = get_parser(TreeSitterParser.PARSERS[lang]).parse(code)
         root = tree.root_node
-        tokens = []
+        return TreeSitterParser.get_tokens_from_node(code, root, lang)
 
-        def traverse_tree(node: tree_sitter.Node) -> None:
-            """
-            Run down the AST (DFS) from a given node and gather tokens from its children.
-            :param node: starting node.
-            :return: None.
-            """
-            for child in node.children:
-                if child.type in TreeSitterParser.IDENTIFIERS[lang]:
-                    start, end = TreeSitterParser.get_positional_bytes(child)
-                    token = code[start:end].decode("utf-8")
-                    if "\n" not in token:  # Will break output files.
-                        subtokens = list(Subtokenizer.process_token(token))
-                        tokens.extend(subtokens)
-                if len(child.children) != 0:
-                    traverse_tree(child)
-
+    @staticmethod
+    def get_tokens_from_classes(file: str, lang: str) -> List[Tuple[str, Counter]]:
+        code = read_file(file)
         try:
-            traverse_tree(root)
+            code = bytes(code, "utf-8")
+        except UnicodeDecodeError:
+            return [(file, Counter())]
+        tree = get_parser(TreeSitterParser.PARSERS[lang]).parse(code)
+        root = tree.root_node
+        try:
+            class_nodes = TreeSitterParser.traverse_tree(root, TreeSitterParser.CLASSES[lang])
         except RecursionError:
-            return Counter()
-        return Counter(tokens)
+            return [(file, Counter())]
+        class_tokens = []
+        for cl in class_nodes:
+            class_tokens.append(("{file}#L{start_line}".format(file=file,
+                                                               start_line=cl.start_point[0] + 1),
+                                 TreeSitterParser.get_tokens_from_node(code, cl, lang)))
+        return class_tokens
+
+    @staticmethod
+    def get_tokens_from_functions(file: str, lang: str) -> List[Tuple[str, Counter]]:
+        code = read_file(file)
+        try:
+            code = bytes(code, "utf-8")
+        except UnicodeDecodeError:
+            return [(file, Counter())]
+        tree = get_parser(TreeSitterParser.PARSERS[lang]).parse(code)
+        root = tree.root_node
+        try:
+            function_nodes = TreeSitterParser.traverse_tree(root, TreeSitterParser.FUNCTIONS[lang])
+        except RecursionError:
+            return [(file, Counter())]
+        function_tokens = []
+        for function in function_nodes:
+            function_tokens.append(("{file}#L{start_line}"
+                                    .format(file=file, start_line=function.start_point[0] + 1),
+                                    TreeSitterParser.get_tokens_from_node(code, function, lang)))
+        return function_tokens
 
 
 class PygmentsParser:
@@ -242,7 +318,7 @@ def get_tokens(code: str, lang: str) -> Counter:
         raise ValueError("Unknown language.")
 
 
-def get_tokens_from_file(file: str, lang: str) -> Tuple[str, Counter]:
+def get_tokens_from_file(file: str, lang: str) -> List[Tuple[str, Counter]]:
     """
     Gather a Counter object of tokens in the file and their count,
     return a tuple (file, Counter(token, count)).
@@ -253,8 +329,8 @@ def get_tokens_from_file(file: str, lang: str) -> Tuple[str, Counter]:
     try:
         code = read_file(file)
     except FileNotFoundError:
-        return file, Counter()
-    return file, get_tokens(code, lang)
+        return [(file, Counter())]
+    return [(file, get_tokens(code, lang))]
 
 
 def transform_tokens(tokens: Counter) -> List[str]:
@@ -339,23 +415,32 @@ def tokenize_repositories(repositories_file: str, output_dir: str, gran: str, lo
                             repository=repository, branch=branch)
                 lang2files = recognize_languages(directory)
                 files = transform_files_list(lang2files, gran)
-                chunk_results = pool([delayed(get_tokens_from_file)
-                                      (get_full_path(file[0], directory), file[1])
-                                      for file in files])
+                if gran in ["projects", "files"]:
+                    chunk_results = pool([delayed(get_tokens_from_file)
+                                          (get_full_path(file[0], directory), file[1])
+                                          for file in files])
+                elif gran == "classes":
+                    chunk_results = pool([delayed(TreeSitterParser.get_tokens_from_classes)
+                                          (get_full_path(file[0], directory), file[1])
+                                          for file in files])
+                elif gran == "functions":
+                    chunk_results = pool([delayed(TreeSitterParser.get_tokens_from_functions)
+                                          (get_full_path(file[0], directory), file[1])
+                                          for file in files])
                 for chunk_result in chunk_results:
-                    if len(chunk_result[1]) != 0:  # Skipping the possible empty files
-                        if local:
-                            files2tokens[chunk_result[0]] = chunk_result[1]
-                        else:
-                            files2tokens[repository_name +
-                                         os.path.relpath(chunk_result[0],
-                                                         directory)] = chunk_result[1]
-            if gran == "files":
-                save_wabbit(list(files2tokens.items()), output_dir, f"wabbit_{gran}.txt")
-            elif gran == "projects":
+                    for bag in chunk_result:
+                        if len(bag[1]) != 0:  # Skipping the possible empty bags
+                            if local:
+                                files2tokens[bag[0]] = bag[1]
+                            else:
+                                files2tokens[repository_name +
+                                             os.path.relpath(bag[0], directory)] = bag[1]
+            if gran == "projects":
                 repository_tokens = Counter()
                 for file_tokens in files2tokens.values():
                     repository_tokens += file_tokens
                 save_wabbit([(repository_name, repository_tokens)],
                             output_dir, f"wabbit_{gran}.txt")
+            else:
+                save_wabbit(list(files2tokens.items()), output_dir, f"wabbit_{gran}.txt")
     print("Tokenization successfully completed.")
