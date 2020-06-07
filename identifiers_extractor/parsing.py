@@ -143,6 +143,18 @@ class TreeSitterParser:
         return nodes
 
     @staticmethod
+    def get_code_from_node(code: bytes, node: tree_sitter.Node) -> str:
+        """
+        Given a node of the AST and the code from which this AST was built, return the original
+        code corresponding to this node.
+        :param code: the original code in bytes.
+        :param node: the node of the tree-sitter AST.
+        :return: code corresponding to the node.
+        """
+        start, end = TreeSitterParser.get_positional_bytes(node)
+        return code[start:end].decode("utf-8")
+
+    @staticmethod
     def get_tokens_from_node(code: bytes, node: tree_sitter.Node, lang: str) -> Counter:
         """
         Given a node of the AST and the code from which this AST was built, gather
@@ -158,8 +170,7 @@ class TreeSitterParser:
             return Counter()
         tokens = []
         for token_node in token_nodes:
-            start, end = TreeSitterParser.get_positional_bytes(token_node)
-            token = code[start:end].decode("utf-8")
+            token = TreeSitterParser.get_code_from_node(code, token_node)
             subtokens = list(Subtokenizer.process_token(token))
             tokens.extend(subtokens)
         return Counter(tokens)
@@ -172,14 +183,18 @@ class TreeSitterParser:
         :param lang: the language of the code fragment.
         :return: a Counter object of items: token and count.
         """
+        try:
+            assert lang in SUPPORTED_LANGUAGES["tree-sitter"]
+        except AssertionError:
+            raise ValueError("Unsupported language!")
         code = bytes(code, "utf-8")
         tree = get_parser(TreeSitterParser.PARSERS[lang]).parse(code)
         root = tree.root_node
         return TreeSitterParser.get_tokens_from_node(code, root, lang)
 
     @staticmethod
-    def get_tokens_from_object(file: str, lang: str,
-                               types: Set[str]) -> List[Tuple[str, Counter]]:
+    def get_tokens_from_objects(file: str, lang: str,
+                                types: Set[str]) -> List[Tuple[str, Counter]]:
         """
         Given a file, its language and the necessary types of objects (classes or functions),
         gather a Counter objects with identifiers and their count within these objects in these
@@ -216,8 +231,8 @@ class TreeSitterParser:
         :return: a list of tuples per every class: ({file_path}#L{starting_line}, Counter).
         """
         try:
-            return TreeSitterParser.get_tokens_from_object(file, lang,
-                                                           TreeSitterParser.CLASSES[lang])
+            return TreeSitterParser.get_tokens_from_objects(file, lang,
+                                                            TreeSitterParser.CLASSES[lang])
         except UnicodeDecodeError:
             return [(file, Counter())]
 
@@ -232,8 +247,8 @@ class TreeSitterParser:
         :return: a list of tuples per every function: ({file_path}#L{starting_line}, Counter).
         """
         try:
-            return TreeSitterParser.get_tokens_from_object(file, lang,
-                                                           TreeSitterParser.FUNCTIONS[lang])
+            return TreeSitterParser.get_tokens_from_objects(file, lang,
+                                                            TreeSitterParser.FUNCTIONS[lang])
         except UnicodeDecodeError:
             return [(file, Counter())]
 
@@ -258,6 +273,10 @@ class PygmentsParser:
         :param lang: the language of the code fragment.
         :return: a Counter object of items: token and count.
         """
+        try:
+            assert lang in SUPPORTED_LANGUAGES["pygments"]
+        except AssertionError:
+            raise ValueError("Unsupported language!")
         tokens = []
         for pair in pygments.lex(code, PygmentsParser.LEXERS[lang]):
             if any(pair[0] in sublist for sublist in PygmentsParser.IDENTIFIERS[lang]):
@@ -286,8 +305,7 @@ def get_tokens_from_file(file: str, lang: str) -> List[Tuple[str, Counter]]:
     return a tuple (file, Counter(token, count)).
     :param file: the full path to the file.
     :param lang: the language of code.
-    :return: the list with a single tuple (file, Counter(token, count)). The reason for using
-             a list is that for
+    :return: the list with a single tuple (file, Counter(token, count)).
     """
     try:
         code = read_file(file)
@@ -371,7 +389,9 @@ def recognize_languages(directory: str) -> dict:
 def transform_files_list(lang2files: Dict[str, str], gran: str,
                          language: str) -> List[Tuple[str, str]]:
     """
-    Transform the output of Enry on a directory into a list of tuples (full_path_to_file, lang).
+    Transform the output of Enry on a directory into a list of tuples (full_path_to_file, lang)
+    for supported languages only. Supported languages depend on the granularity and whether one
+    specific language was specified.
     :param lang2files: the dictionary output of Enry: {language: [files], ...}.
     :param gran: granularity of parsing. Values are ["projects", "files", "classes", "functions"].
     :param language: the language of parsing. 'all' stands for all the languages available for a
@@ -390,6 +410,10 @@ def transform_files_list(lang2files: Dict[str, str], gran: str,
     # If a specific language was specified, override it
     # and check its availability for a given granularity.
     if language != "all":
+        try:
+            assert language in SUPPORTED_LANGUAGES["tree-sitter"] | SUPPORTED_LANGUAGES["pygments"]
+        except AssertionError:
+            raise ValueError("Unsupported language!")
         if language in langs:
             langs = [language]
         else:
@@ -422,8 +446,8 @@ def tokenize_repository(repository: str, local: bool, gran: str, language: str,
     to file or a link to GitHub, with starting lines for functions and classes.
     :param repository: a link to the repository. If "local" is False, a link to GitHub,
                        otherwise - a path to a directory.
-    :param local: True if tokenizing in local mode (the input file contains paths to directories),
-                  False if tokenizing in default mode (the input file contains GitHub links).
+    :param local: True if tokenizing in local mode (repository is a path to a direcotry),
+                  False if tokenizing in default mode (repository is a GitHub link).
     :param gran: granularity of parsing. Values are ["projects", "files", "classes", "functions"].
     :param language: the language of parsing. 'all' stands for all the languages available for a
                      given parsing granularity, specific languages refer to themselves.
@@ -449,13 +473,13 @@ def tokenize_repository(repository: str, local: bool, gran: str, language: str,
                 clone_repository(repository, directory)
             except RepositoryError:
                 raise
-            branch = get_latest_commit(directory)
+            commit = get_latest_commit(directory)
             if gran == "projects":
                 # With projects granularity, the link to GitHub is to the entire tree
-                repository_name = f"{repository}tree/{branch}/"
+                repository_name = f"{repository}tree/{commit}/"
             else:
                 # With other granularities, the links will be to specific files
-                repository_name = f"{repository}blob/{branch}/"
+                repository_name = f"{repository}blob/{commit}/"
         lang2files = recognize_languages(directory)  # Recognize the languages in the directory
         files = transform_files_list(lang2files, gran, language)
         # Gather the tokens for the correct granularity of parsing
@@ -485,9 +509,9 @@ def tokenize_repository(repository: str, local: bool, gran: str, language: str,
 
 def transform_tokens(tokens: Counter) -> List[str]:
     """
-    Transform the original list of tokens into the writable form.
+    Transform the Counter object of tokens and their count into the writable form.
     :param tokens: a Counter object of tokens and their count.
-    :return: a list of tokens in the writable form, "n_token:count".
+    :return: a list of tokens in the writable form, "n_token:count", sorted alphabetically.
     """
     sorted_tokens = sorted(tokens.items(), key=itemgetter(0))
     formatted_tokens = []
@@ -536,8 +560,7 @@ def tokenize_list_of_repositories(repositories_file: str, output_dir: str, batch
                                   output_format: str) -> None:
     """
     Given the list of links to repositories, tokenize all the repositories in the list,
-    writing them in batches to files, a single repository per line, vocabulary separately.
-    When run several times, overwrites the data.
+    writing them in batches to files in a specified output format.
     :param repositories_file: path to text file with a list of repositories.
     :param output_dir: path to the output directory.
     :param batch_size: the number of repositories to be grouped into a single batch / file.
@@ -549,10 +572,16 @@ def tokenize_list_of_repositories(repositories_file: str, output_dir: str, batch
     :param output_format: the output format. Possible values: ["wabbit"]
     :return: None.
     """
-    assert gran in {"projects", "files", "classes", "functions"}
-    assert output_format in {"wabbit"}
+    try:
+        assert gran in {"projects", "files", "classes", "functions"}
+    except AssertionError:
+        raise ValueError("Incorrect granularity of parsing.")
+    try:
+        assert output_format in {"wabbit"}
+    except AssertionError:
+        raise ValueError("Incorrect output format.")
     print(f"Tokenizing the repositories with {gran} granularity, "
-          f"saving into {output_format} format.")
+          f"saving into {output_format} format. Languages: {language}.")
     # Reading the input file and splitting repositories into batches.
     assert os.path.exists(repositories_file)
     with open(repositories_file) as fin:
@@ -577,7 +606,7 @@ def tokenize_list_of_repositories(repositories_file: str, output_dir: str, batch
                     print(f"{repository} is an incorrect link, skipping...")
                     continue
                 reps2bags[repository_name] = bags2tokens
-            if len(reps2bags.keys()) != 0:
+            if len(reps2bags.keys()) != 0:  # Skipping possible empty batches.
                 if output_format == "wabbit":
                     save_wabbit(reps2bags, gran, output_dir, filename)
     print("Tokenization successfully completed.")
