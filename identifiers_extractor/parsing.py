@@ -34,6 +34,14 @@ SUPPORTED_LANGUAGES = {"tree-sitter": {"JavaScript", "Python", "Java", "Go", "C+
                                      "TypeScript", "TSX", "PHP", "C#", "C", "Shell", "Rust"}}
 
 
+class RepositoryError(ValueError):
+    """
+    A special error for catching wrong links to repositories and skipping such repositories.
+    """
+    def __init__(self, *args):
+        ValueError.__init__(self, *args)
+
+
 def read_file(file: str) -> str:
     """
     Read the contents of the file.
@@ -335,7 +343,7 @@ def clone_repository(repository: str, directory: str) -> None:
     if "://" in repository:
         body = repository.split("://")[1]
     else:
-        raise ValueError(f"{repository} is not a valid link!")
+        raise RepositoryError(f"{repository} is not a valid link!")
     repository = "https://user:password@" + body
     os.system(f"git clone --quiet --depth 1 {repository} {directory}")
 
@@ -360,14 +368,18 @@ def recognize_languages(directory: str) -> dict:
                               .format(enry_loc=get_enry(), directory=directory)))
 
 
-def transform_files_list(lang2files: Dict[str, str], gran: str) -> List[Tuple[str, str]]:
+def transform_files_list(lang2files: Dict[str, str], gran: str,
+                         language: str) -> List[Tuple[str, str]]:
     """
     Transform the output of Enry on a directory into a list of tuples (full_path_to_file, lang).
     :param lang2files: the dictionary output of Enry: {language: [files], ...}.
-    :param gran: the granularity of parsing.
+    :param gran: granularity of parsing. Values are ["projects", "files", "classes", "functions"].
+    :param language: the language of parsing. 'all' stands for all the languages available for a
+                     given parsing granularity, specific languages refer to themselves.
     :return: a list of tuples (full_path_to_file, lang) for the necessary languages.
     """
-    if gran in ["projects", "files"]:
+    # Get the languages available for a given granularity.
+    if gran in ["projects", "files"]:  # Projects and files are supported for all languages.
         langs = SUPPORTED_LANGUAGES["tree-sitter"] | SUPPORTED_LANGUAGES["pygments"]
     elif gran == "classes":
         langs = SUPPORTED_LANGUAGES["classes"]
@@ -375,6 +387,13 @@ def transform_files_list(lang2files: Dict[str, str], gran: str) -> List[Tuple[st
         langs = SUPPORTED_LANGUAGES["functions"]
     else:
         raise ValueError("Incorrect granularity of parsing.")
+    # If a specific language was specified, override it
+    # and check its availability for a given granularity.
+    if language != "all":
+        if language in langs:
+            langs = [language]
+        else:
+            raise ValueError(f"{language} doesn't support {gran} granularity.")
     files = []
     for lang in lang2files.keys():
         if lang in langs:
@@ -394,7 +413,7 @@ def get_full_path(file: str, directory: str) -> str:
     return os.path.abspath(os.path.join(directory, file))
 
 
-def tokenize_repository(repository: str, local: bool, gran: str,
+def tokenize_repository(repository: str, local: bool, gran: str, language: str,
                         pool: Parallel) -> Tuple[str, Dict[str, Counter]]:
     """
     Tokenize a given repository into bags of tokens with the necessary granularity. Return the
@@ -405,7 +424,9 @@ def tokenize_repository(repository: str, local: bool, gran: str,
                        otherwise - a path to a directory.
     :param local: True if tokenizing in local mode (the input file contains paths to directories),
                   False if tokenizing in default mode (the input file contains GitHub links).
-    :param gran: granularity of parsing. Values are ["projects", "files", "classes", "fuctions"].
+    :param gran: granularity of parsing. Values are ["projects", "files", "classes", "functions"].
+    :param language: the language of parsing. 'all' stands for all the languages available for a
+                     given parsing granularity, specific languages refer to themselves.
     :param pool: the Parallel class instance for multiprocessing.
     :return: the correct name of the repository for links and a dictionary with bags' names as keys
     and the Counter objects of tokens and their counts as values. The bag's name is either a path
@@ -420,14 +441,14 @@ def tokenize_repository(repository: str, local: bool, gran: str,
             try:
                 assert os.path.isdir(directory)
             except AssertionError:
-                raise ValueError(f"{directory} doesn't exist!")
+                raise RepositoryError(f"{directory} doesn't exist!")
             repository_name = directory
         else:
             directory = td  # Working with a temporary directory in the remote mode
             try:
                 clone_repository(repository, directory)
-            except ValueError:
-                raise ValueError(f"{repository} is not a valid link!")
+            except RepositoryError:
+                raise
             branch = get_latest_commit(directory)
             if gran == "projects":
                 # With projects granularity, the link to GitHub is to the entire tree
@@ -436,7 +457,7 @@ def tokenize_repository(repository: str, local: bool, gran: str,
                 # With other granularities, the links will be to specific files
                 repository_name = f"{repository}blob/{branch}/"
         lang2files = recognize_languages(directory)  # Recognize the languages in the directory
-        files = transform_files_list(lang2files, gran)
+        files = transform_files_list(lang2files, gran, language)
         # Gather the tokens for the correct granularity of parsing
         if gran in ["projects", "files"]:
             chunk_results = pool([delayed(get_tokens_from_file)
@@ -511,7 +532,8 @@ def save_wabbit(reps2bags: Dict[str, Dict[str, Counter]], gran: str,
 
 
 def tokenize_list_of_repositories(repositories_file: str, output_dir: str, batch_size: int,
-                                  gran: str, local: bool, output_format: str) -> None:
+                                  gran: str, language: str, local: bool,
+                                  output_format: str) -> None:
     """
     Given the list of links to repositories, tokenize all the repositories in the list,
     writing them in batches to files, a single repository per line, vocabulary separately.
@@ -519,7 +541,9 @@ def tokenize_list_of_repositories(repositories_file: str, output_dir: str, batch
     :param repositories_file: path to text file with a list of repositories.
     :param output_dir: path to the output directory.
     :param batch_size: the number of repositories to be grouped into a single batch / file.
-    :param gran: the granularity of parsing.
+    :param gran: granularity of parsing. Values are ["projects", "files", "classes", "functions"].
+    :param language: the language of parsing. 'all' stands for all the languages available for a
+                     given parsing granularity, specific languages refer to themselves.
     :param local: True if tokenizing in local mode (the input file contains paths to directories),
                   False if tokenizing in default mode (the input file contains GitHub links)
     :param output_format: the output format. Possible values: ["wabbit"]
@@ -548,8 +572,8 @@ def tokenize_list_of_repositories(repositories_file: str, output_dir: str, batch
             for repository in tqdm(batch):
                 try:
                     repository_name, bags2tokens = tokenize_repository(repository, local,
-                                                                       gran, pool)
-                except ValueError:
+                                                                       gran, language, pool)
+                except RepositoryError:
                     print(f"{repository} is an incorrect link, skipping...")
                     continue
                 reps2bags[repository_name] = bags2tokens

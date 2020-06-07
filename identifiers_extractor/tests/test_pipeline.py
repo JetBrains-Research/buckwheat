@@ -26,7 +26,7 @@ class TestPipeline(unittest.TestCase):
 
     def test_transforming_list(self):
         lang2files = recognize_languages(os.path.abspath(os.path.join(tests_dir, "test_files")))
-        files = transform_files_list(lang2files, "projects")
+        files = transform_files_list(lang2files, "projects", "all")
         self.assertEqual(len(files), 16)
 
     def test_transforming_tokens(self):
@@ -39,7 +39,7 @@ class TestPipeline(unittest.TestCase):
     def test_tokenization(self):
         tokenize_list_of_repositories(os.path.abspath(os.path.join(
             tests_dir, "test_files", "test.txt")), os.path.abspath(
-            os.path.join(tests_dir, "test_results")), 100, "files", True, "wabbit")
+            os.path.join(tests_dir, "test_results")), 100, "files", "all", True, "wabbit")
         with open(os.path.abspath(os.path.join(tests_dir, "test_results",
                                                "wabbit_files_0.txt"))) as fin:
             wabbit_lines = sum(1 for line in fin)
