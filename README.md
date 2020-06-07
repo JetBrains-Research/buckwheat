@@ -2,7 +2,7 @@
 ![Linux & MacOS build](https://github.com/JetBrains-Research/identifiers-extractor/workflows/Linux%20&%20MacOS%20CI/badge.svg)
 
 # Source Code Identifiers
-A multi-language tokenizer for extracting identifiers (or, theoretically, anything else) from source code.
+A multi-language tokenizer for extracting identifiers from source code.
 
 The tool is already employed in [searching for similar repositories](https://github.com/JetBrains-Research/similar-repositories/) and [studying the dynamics of topics in code](https://github.com/areyde/topic-dynamics).
 
@@ -26,25 +26,24 @@ The tool currently works on Linux and MacOS, correct versions of files will be d
     - `-i`: a path to the input file;
     - `-o`: a path to the output directory;
     - `-b`: the size of the batch of projects that will be saved together (by default 100);
+    - `-g`: granularity of the tokenization. Positive values: `projects` for gathering bags of identifiers for the entire repositories, `files` for the file level (the default mode), `classes` for the level of classes (for the languages that have classes), `functions` for the level of functions (for the languages that have functions).
+    - `-f`: output format, currently can only be `wabbit` for [Vowpal Wabbit](https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Input-format).
     - `-l`: if passed, switches the tokenization into the local mode, where the input file must contain the paths to local directories.
-
-For every batch, two files will be created:
-- `docword`: for every repository, all of its subtokens are listed as `id:count`, one repository per line, in descending order of counts. The ids are the same for the entire batch.
-- `vocab`: all unique subtokens are listed as `id;subtoken`, one subtoken per line, in ascending order of ids.
-
+    - `--lang`: if passed with a specific language, then only files in this language are considered. Please note that if run with a granularity that doesn't support this language, it will produce an error.
+    
 ## How it works
 After the target project is downloaded, it is processed in three main steps:
 1. **Language recognition**. Firstly, the languages of the project are recognized with [enry](https://github.com/src-d/enry). This operation returns a dictionary with languages as keys and corresponding lists of files as values. Only the files in supported languages are passed on to the next step (see the full list below).
-2. **Parsing**. Every file is parsed with one of the two parsers. The most popular languages are parsed with [tree-sitter](https://tree-sitter.github.io/), and the languages that do not yet have _tree-sitter_ grammar are parsed with [pygments](https://pygments.org/). At this point, identifiers are extracted and every identifier is passed on to the next step.
+2. **Parsing**. Every file is parsed with one of the two parsers. The most popular languages are parsed with [tree-sitter](https://tree-sitter.github.io/), and the languages that do not yet have _tree-sitter_ grammar are parsed with [pygments](https://pygments.org/). At this point, identifiers are extracted and every identifier is passed on to the next step. For tree-sitter languages, class-level and function-level parsing is also available.
 3. **Subtokenizing**. Every identifier is split into subtokens by camelCase and snake_case, small subtokens are connected to longer ones, and the subtokens are stemmed. In general, the preprocessing is carried out as described in [this paper](https://arxiv.org/abs/1704.00135).
 
-The counters of subtokens are aggregated for projects and saved to file.
+The counters of subtokens are aggregated for the given granularity (project, file, class, or function) and saved to file.
 
 ## Advanced use
 
 Every step of the pipeline can be modified:
 1. Languages can be added by modifying `SUPPORTED_LANGUAGES` in `parsing.py`.
-2. The tool can extract not only identifiers, but anything that is detected by either _tree-sitter_ or _pygments_. This can be done my modifying `NODE_TYPES` in `TreeSitterParser` class and `TYPES` in `PygmentsParser` class.
+2. The tool can extract not only identifiers, but anything that is detected by either _tree-sitter_ or _pygments_. This can be done my modifying the types in `TreeSitterParser` and `PygmentsParser` classes.
 3. Subtokenization can be modified in `subtokenizing.py`. The tokens can be connected together, stemmed, filtered by length, etc.
 
 ## Supported languages
