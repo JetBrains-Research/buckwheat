@@ -6,7 +6,7 @@ import os
 import unittest
 
 from ..parsing import cmdline, recognize_languages, transform_files_list, transform_tokens, \
-    tokenize_repositories
+    tokenize_list_of_repositories
 
 tests_dir = os.path.abspath(os.path.dirname(__file__))
 
@@ -37,11 +37,11 @@ class TestPipeline(unittest.TestCase):
                                               "prototyp:1", "rectangl:2", "width:4"])
 
     def test_tokenization(self):
-        tokenize_repositories(os.path.abspath(os.path.join(tests_dir, "test_files", "test.txt")),
-                              os.path.abspath(os.path.join(tests_dir, "test_results")),
-                              "files", True)
+        tokenize_list_of_repositories(os.path.abspath(os.path.join(
+            tests_dir, "test_files", "test.txt")), os.path.abspath(
+            os.path.join(tests_dir, "test_results")), 100, "files", True, "wabbit")
         with open(os.path.abspath(os.path.join(tests_dir, "test_results",
-                                               "wabbit_files.txt"))) as fin:
+                                               "wabbit_files_0.txt"))) as fin:
             wabbit_lines = sum(1 for line in fin)
         self.assertEqual(wabbit_lines, 16)
 
