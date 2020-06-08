@@ -220,7 +220,8 @@ class TreeSitterParser:
         :param file: the full path to file.
         :param lang: the language of the file.
         :param types: the set of necessary tree-sitter types of the necessary objects.
-        :return: a list of tuples: ({file_path}#L{starting_line}, list of tuples with subtokens).
+        :return: a list of tuples: ({file_path}#L{starting_line}, list of tuples with subtokens
+                 and their parameters).
         """
         code = read_file(file)
         code = bytes(code, "utf-8")
@@ -242,12 +243,14 @@ class TreeSitterParser:
     def get_tokens_sequence_from_classes(file: str, lang: str) \
             -> List[Tuple[str, List[Tuple[str, int, int, int, int, int, int]]]]:
         """
-        Given a file and its language, gather a Counter objects with identifiers and their count
-        within the classes of this file. Returns a list of tuples ({file_path}#L{starting_line},
-        Counter), one tuple per class.
+        Given a file and its language, gather a lists of subtokens of identifiers and their
+        parameters: starting byte, ending byte, starting line, starting symbol in line,
+        ending line, ending symbol in line within the classes of this file. Returns a list of
+        tuples ({file_path}#L{starting_line}, list of tuples with subtokens), one tuple per class.
         :param file: the full path to file.
         :param lang: the language of the file.
-        :return: a list of tuples per every class: ({file_path}#L{starting_line}, Counter).
+        :return: a list of tuples per class: ({file_path}#L{starting_line},
+                 list of tuples with subtokens and their parameters).
         """
         try:
             return TreeSitterParser.get_tokens_sequence_from_objects(file, lang, TreeSitterParser
@@ -259,12 +262,14 @@ class TreeSitterParser:
     def get_tokens_sequence_from_functions(file: str, lang: str) \
             -> List[Tuple[str, List[Tuple[str, int, int, int, int, int, int]]]]:
         """
-        Given a file and its language, gather a Counter objects with identifiers and their count
-        within the functions of this file. Returns a list of tuples ({file_path}#L{starting_line},
-        Counter), one tuple per function.
+        Given a file and its language, gather a lists of subtokens of identifiers and their
+        parameters: starting byte, ending byte, starting line, starting symbol in line, ending
+        line, ending symbol in line within the functions of this file. Returns a list of tuples
+        ({file_path}#L{starting_line}, list of tuples with subtokens), one tuple per function.
         :param file: the full path to file.
         :param lang: the language of the file.
-        :return: a list of tuples per every function: ({file_path}#L{starting_line}, Counter).
+        :return: a list of tuples per function: ({file_path}#L{starting_line},
+                 list of tuples with subtokens and their parameters).
         """
         try:
             return TreeSitterParser.get_tokens_sequence_from_objects(file, lang, TreeSitterParser
@@ -295,7 +300,7 @@ class PygmentsParser:
         :param code: the code to parse.
         :param lang: the language of the code fragment.
         :return: a list of tuples (subtoken, starting byte, ending byte, starting line, starting
-                 symbol in line, ending line, ending symbol in line)
+                 symbol in line, ending line, ending symbol in line).
         """
         try:
             assert lang in SUPPORTED_LANGUAGES["pygments"]
@@ -320,7 +325,7 @@ def get_tokens_sequence_from_code(code: str, lang: str) -> \
     :param code: the code to parse.
     :param lang: the language of the code fragment.
     :return: a list of tuples (subtoken, starting byte, ending byte, starting line, starting
-             symbol in line, ending line, ending symbol in line)
+             symbol in line, ending line, ending symbol in line).
     """
     if lang in SUPPORTED_LANGUAGES["tree-sitter"]:
         return TreeSitterParser.get_tokens_sequence_from_code(code, lang)
@@ -339,7 +344,7 @@ def get_tokens_sequence_from_file(file: str, lang: str) -> \
     :param file: the full path to file.
     :param lang: the language of the file.
     :return: a list of tuples (subtoken, starting byte, ending byte, starting line, starting
-             symbol in line, ending line, ending symbol in line)
+             symbol in line, ending line, ending symbol in line).
     """
     try:
         code = read_file(file)
