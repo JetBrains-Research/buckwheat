@@ -5,7 +5,7 @@ from collections import Counter
 import os
 import unittest
 
-from ..parsing import cmdline, recognize_languages, transform_files_list, transform_tokens, \
+from ..parsing import cmdline, recognize_languages, transform_files_list, \
     tokenize_list_of_repositories
 
 tests_dir = os.path.abspath(os.path.dirname(__file__))
@@ -29,20 +29,14 @@ class TestPipeline(unittest.TestCase):
         files = transform_files_list(lang2files, "projects", "all")
         self.assertEqual(len(files), 16)
 
-    def test_transforming_tokens(self):
-        tokens = Counter({"height": 4, "width": 4, "rectangl": 2,
-                          "calc": 2, "area": 2, "prototyp": 1})
-        transformed_tokens = transform_tokens(tokens)
-        self.assertEqual(transformed_tokens, ["area:2", "calc:2", "height:4",
-                                              "prototyp:1", "rectangl:2", "width:4"])
-
     def test_tokenization(self):
         tokenize_list_of_repositories(os.path.abspath(os.path.join(
             tests_dir, "test_files", "test.txt")), os.path.abspath(
-            os.path.join(tests_dir, "test_results")), 100, "files", "all", True, "wabbit")
+            os.path.join(tests_dir, "test_results")),
+            100, "counters", "files", "all", True, "wabbit")
         with open(os.path.abspath(os.path.join(tests_dir, "test_results",
                                                "wabbit_files_0.txt"))) as fin:
-            wabbit_lines = sum(1 for line in fin)
+            wabbit_lines = sum(1 for _ in fin)
         self.assertEqual(wabbit_lines, 16)
 
 

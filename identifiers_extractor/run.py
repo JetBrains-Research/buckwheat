@@ -16,8 +16,8 @@ def main(args: argparse.Namespace) -> None:
     initialize_parser()
     initialize_enry()
     tokenize_list_of_repositories(repositories_file=args.input, output_dir=args.output,
-                                  batch_size=int(args.batches), gran=args.granularity,
-                                  language=args.language, local=args.local,
+                                  batch_size=int(args.batches), mode = args.parsing,
+                                  gran=args.granularity, language=args.language, local=args.local,
                                   output_format=args.format)
 
 
@@ -28,8 +28,15 @@ if __name__ == "__main__":
                              "GitHub in the default mode and paths to directories in the local "
                              "mode.")
     parser.add_argument("-o", "--output", required=True, help="Full path to the output directory.")
-    parser.add_argument("-b", "--batches", default=100,
-                        help="The size of the batch of projects that are saved to one file.")
+    parser.add_argument("-b", "--batches", default=10,
+                        help="The size of the batch of projects that are saved to one file. "
+                             "The default value is 10.")
+    parser.add_argument("-p", "--parsing", choices=["counters", "sequences"], default="counters",
+                        help="The mode of parsing. 'counters' returns Counter objects of subtokens"
+                             " and their count, 'sequences' returns full sequences of subtokens "
+                             "and their parameters: starting byte, ending byte, starting line,"
+                             "starting symbol in line, ending line, ending symbol in line. For"
+                             " the 'projects' granularity, only 'counters' are available.")
     parser.add_argument("-g", "--granularity",
                         choices=["projects", "files", "classes", "functions"], default="files",
                         help="The granularity level of parsing: 'projects' for the level of "

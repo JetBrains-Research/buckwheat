@@ -25,8 +25,9 @@ The tool currently works on Linux and MacOS, correct versions of files will be d
 4. Run from the command line with `python3 -m identifiers_extractor.run` and the following arguments:
     - `-i`: a path to the input file;
     - `-o`: a path to the output directory;
-    - `-b`: the size of the batch of projects that will be saved together (by default 100);
-    - `-g`: granularity of the tokenization. Positive values: `projects` for gathering bags of identifiers for the entire repositories, `files` for the file level (the default mode), `classes` for the level of classes (for the languages that have classes), `functions` for the level of functions (for the languages that have functions).
+    - `-b`: the size of the batch of projects that will be saved together (by default 10);
+    - `-p`: The mode of parsing. `counters` (default value) returns Counter objects of subtokens and their count, `sequences` returns full sequences of subtokens and their parameters: starting byte, ending byte, starting line, starting symbol in line, ending line, ending symbol in line. For the `projects` granularity, only `counters` are available.
+    - `-g`: granularity of the tokenization. Possible values: `projects` for gathering bags of identifiers for the entire repositories, `files` for the file level (the default mode), `classes` for the level of classes (for the languages that have classes), `functions` for the level of functions (for the languages that have functions).
     - `-f`: output format, currently can only be `wabbit` for [Vowpal Wabbit](https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Input-format).
     - `-l`: if passed, switches the tokenization into the local mode, where the input file must contain the paths to local directories.
     - `--lang`: if passed with a specific language, then only files in this language are considered. Please note that if run with a granularity that doesn't support this language, it will produce an error.
@@ -38,6 +39,7 @@ After the target project is downloaded, it is processed in three main steps:
 3. **Subtokenizing**. Every identifier is split into subtokens by camelCase and snake_case, small subtokens are connected to longer ones, and the subtokens are stemmed. In general, the preprocessing is carried out as described in [this paper](https://arxiv.org/abs/1704.00135).
 
 The counters of subtokens are aggregated for the given granularity (project, file, class, or function) and saved to file.
+Alternatively, sequences of tokens are saved in order of appearance in the bag (file, class, or function).
 
 ## Advanced use
 
