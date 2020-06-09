@@ -144,36 +144,31 @@ class TreeSitterParser:
         return nodes
 
     @staticmethod
-    def get_code_from_node(code: bytes, node: tree_sitter.Node) -> \
-            Tuple[str, int, int, int, int, int, int]:
+    def get_code_from_node(code: bytes, node: tree_sitter.Node) -> Tuple[str, int, int, int]:
         """
         Given a node of the AST and the code from which this AST was built, return the original
-        code corresponding to this node and its parameters: starting byte, ending byte,
-        starting line, starting symbol in line, ending line, ending symbol in line.
+        code corresponding to this node and its parameters: starting byte, starting line,
+        starting symbol in line.
         :param code: the original code in bytes.
         :param node: the node of the tree-sitter AST.
-        :return: tuple (code, starting byte, ending byte, starting line, starting symbol in line,
-                 ending line, ending symbol in line.
+        :return: tuple (code, starting byte, starting line, starting symbol in line).
         """
         start_byte, end_byte = TreeSitterParser.get_positional_bytes(node)
         code_snippet = code[start_byte:end_byte].decode("utf-8")
         start_line, start_symbol_in_line = node.start_point
-        end_line, end_symbol_in_line = node.end_point
-        return (code_snippet, start_byte, end_byte, start_line,
-                start_symbol_in_line, end_line, end_symbol_in_line)
+        return code_snippet, start_byte, start_line, start_symbol_in_line
 
     @staticmethod
     def get_tokens_sequence_from_node(code: bytes, node: tree_sitter.Node, lang: str) -> \
-            List[Tuple[str, int, int, int, int, int, int]]:
+            List[Tuple[str, int, int, int]]:
         """
         Given a node of the AST and the code from which this AST was built, gather a list of
-        tuples: subtokens of identifiers and their parameters: starting byte, ending byte,
-        starting line, starting symbol in line, ending line, ending symbol in line.
+        tuples: subtokens of identifiers and their parameters: starting byte, starting line,
+        starting symbol in line.
         :param code: the original code in bytes.
         :param node: the node of the tree-sitter AST.
         :param lang: the language of code.
-        :return: a list of tuples (subtoken, starting byte, ending byte, starting line, starting
-                 symbol in line, ending line, ending symbol in line).
+        :return: list of tuples (subtoken, starting byte, starting line, starting symbol in line).
         """
         try:
             token_nodes = TreeSitterParser.traverse_tree(node, TreeSitterParser.IDENTIFIERS[lang])
@@ -182,22 +177,21 @@ class TreeSitterParser:
         tokens_sequence = []
         for token_node in token_nodes:
             token_verbose = TreeSitterParser.get_code_from_node(code, token_node)
+            # Currently, each subtoken returns the coordinates of the original token
+            # (for using Git Blame, etc.). Maybe add later.
             subtokens = [(subtoken,) + token_verbose[1:] for subtoken
                          in list(Subtokenizer.process_token(token_verbose[0]))]
             tokens_sequence.extend(subtokens)
         return tokens_sequence
 
     @staticmethod
-    def get_tokens_sequence_from_code(code: str, lang: str) -> \
-            List[Tuple[str, int, int, int, int, int, int]]:
+    def get_tokens_sequence_from_code(code: str, lang: str) -> List[Tuple[str, int, int, int]]:
         """
         Given the code and its language, gather subtokens of identifiers and their parameters:
-        starting byte, ending byte, starting line, starting symbol in line, ending line,
-        ending symbol in line.
+        starting byte, starting line, starting symbol in line.
         :param code: source code as a string.
         :param lang: language of the code.
-        :return: a list of tuples (subtoken, starting byte, ending byte, starting line, starting
-                 symbol in line, ending line, ending symbol in line).
+        :return: list of tuples (subtoken, starting byte, starting line, starting symbol in line).
         """
         try:
             assert lang in SUPPORTED_LANGUAGES["tree-sitter"]
@@ -210,13 +204,12 @@ class TreeSitterParser:
 
     @staticmethod
     def get_tokens_sequence_from_objects(file: str, lang: str, types: Set[str]) -> \
-            List[Tuple[str, List[Tuple[str, int, int, int, int, int, int]]]]:
+            List[Tuple[str, List[Tuple[str, int, int, int]]]]:
         """
         Given a file, its language and the necessary types of objects (classes or functions),
-        gather lists of subtokens of identifiers and their parameters: starting byte, ending byte,
-        starting line, starting symbol in line, ending line, ending symbol in line. Returns a list
-        of tuples ({file_path}#L{starting_line}, list of tuples with subtokens), one tuple per
-        object.
+        gather lists of subtokens of identifiers and their parameters: starting byte, starting
+        line, starting symbol in line - for each object. Returns a list of tuples
+        ({file_path}#L{starting_line}, list of tuples with subtokens), one tuple per object.
         :param file: the full path to file.
         :param lang: the language of the file.
         :param types: the set of necessary tree-sitter types of the necessary objects.
@@ -241,12 +234,13 @@ class TreeSitterParser:
 
     @staticmethod
     def get_tokens_sequence_from_classes(file: str, lang: str) \
-            -> List[Tuple[str, List[Tuple[str, int, int, int, int, int, int]]]]:
+            -> List[Tuple[str, List[Tuple[str, int, int, int]]]]:
         """
         Given a file and its language, gather a lists of subtokens of identifiers and their
-        parameters: starting byte, ending byte, starting line, starting symbol in line,
-        ending line, ending symbol in line within the classes of this file. Returns a list of
-        tuples ({file_path}#L{starting_line}, list of tuples with subtokens), one tuple per class.
+        parameters: starting byte, starting line, starting symbol in line within the classes of
+        this file. Returns a list of tuples ({file_path}#L{starting_line}, list of tuples with
+        subtokens), one tuple per class. In case of errors returns a tuple of the file name
+        and an empty list (for bulk processing of files).
         :param file: the full path to file.
         :param lang: the language of the file.
         :return: a list of tuples per class: ({file_path}#L{starting_line},
@@ -260,12 +254,13 @@ class TreeSitterParser:
 
     @staticmethod
     def get_tokens_sequence_from_functions(file: str, lang: str) \
-            -> List[Tuple[str, List[Tuple[str, int, int, int, int, int, int]]]]:
+            -> List[Tuple[str, List[Tuple[str, int, int, int]]]]:
         """
         Given a file and its language, gather a lists of subtokens of identifiers and their
-        parameters: starting byte, ending byte, starting line, starting symbol in line, ending
-        line, ending symbol in line within the functions of this file. Returns a list of tuples
-        ({file_path}#L{starting_line}, list of tuples with subtokens), one tuple per function.
+        parameters: starting byte, starting line, starting symbol in line within the functions of
+        this file. Returns a list of tuples ({file_path}#L{starting_line}, list of tuples with
+        subtokens), one tuple per function. In case of errors returns a tuple of the file name
+        and an empty list (for bulk processing of files).
         :param file: the full path to file.
         :param lang: the language of the file.
         :return: a list of tuples per function: ({file_path}#L{starting_line},
@@ -292,15 +287,13 @@ class PygmentsParser:
 
     @staticmethod
     def get_tokens_sequence_from_code(code: str, lang: str) -> \
-            List[Tuple[str, int, int, int, int, int, int]]:
+            List[Tuple[str, int, int, int]]:
         """
         Given the code and its language, gather subtokens of identifiers and their parameters:
-        starting byte, ending byte, starting line, starting symbol in line, ending line,
-        ending symbol in line.
+        starting byte, starting line, starting symbol in line.
         :param code: the code to parse.
         :param lang: the language of the code fragment.
-        :return: a list of tuples (subtoken, starting byte, ending byte, starting line, starting
-                 symbol in line, ending line, ending symbol in line).
+        :return: list of tuples (subtoken, starting byte, starting line, starting symbol in line).
         """
         try:
             assert lang in SUPPORTED_LANGUAGES["pygments"]
@@ -309,23 +302,21 @@ class PygmentsParser:
         tokens = []
         for pair in pygments.lex(code, PygmentsParser.LEXERS[lang]):
             if any(pair[0] in sublist for sublist in PygmentsParser.IDENTIFIERS[lang]):
-                # TODO: implement indexes for tokens
-                subtokens = [(subtoken,) + (0, 0, 0, 0, 0, 0) for subtoken
+                # TODO: implement indexes for tokens, it's possible in pygments. (0, 0, 0) for now.
+                subtokens = [(subtoken,) + (0, 0, 0) for subtoken
                              in list(Subtokenizer.process_token(pair[1]))]
                 tokens.extend(subtokens)
         return tokens
 
 
 def get_tokens_sequence_from_code(code: str, lang: str) -> \
-        List[Tuple[str, int, int, int, int, int, int]]:
+        List[Tuple[str, int, int, int]]:
     """
     Given the code and its language, gather subtokens of identifiers and their parameters:
-    starting byte, ending byte, starting line, starting symbol in line, ending line,
-    ending symbol in line.
+    starting byte, starting line, starting symbol in line.
     :param code: the code to parse.
     :param lang: the language of the code fragment.
-    :return: a list of tuples (subtoken, starting byte, ending byte, starting line, starting
-             symbol in line, ending line, ending symbol in line).
+    :return: list of tuples (subtoken, starting byte, starting line, starting symbol in line).
     """
     if lang in SUPPORTED_LANGUAGES["tree-sitter"]:
         return TreeSitterParser.get_tokens_sequence_from_code(code, lang)
@@ -336,15 +327,13 @@ def get_tokens_sequence_from_code(code: str, lang: str) -> \
 
 
 def get_tokens_sequence_from_file(file: str, lang: str) -> \
-        List[Tuple[str, List[Tuple[str, int, int, int, int, int, int]]]]:
+        List[Tuple[str, List[Tuple[str, int, int, int]]]]:
     """
     Given the file and its language, gather subtokens of identifiers and their parameters:
-    starting byte, ending byte, starting line, starting symbol in line, ending line,
-    ending symbol in line.
+    starting byte, starting line, starting symbol in line.
     :param file: the full path to file.
     :param lang: the language of the file.
-    :return: a list of tuples (subtoken, starting byte, ending byte, starting line, starting
-             symbol in line, ending line, ending symbol in line).
+    :return: list of tuples (subtoken, starting byte, starting line, starting symbol in line).
     """
     try:
         code = read_file(file)
@@ -353,7 +342,7 @@ def get_tokens_sequence_from_file(file: str, lang: str) -> \
         return [(file, [])]
 
 
-def sequence_to_counter(sequence: List[Tuple[str, ...]]) -> Counter:
+def sequence_to_counter(sequence: List[Tuple[str, int, int, int]]) -> Counter:
     """
     Transforms a list of tuples with tokens and their information into a counter object.
     :param sequence: a list of tuples, where the first element of the tuple is a token.
@@ -489,7 +478,7 @@ def get_full_path(file: str, directory: str) -> str:
 
 
 def tokenize_repository(repository: str, local: bool, gran: str, language: str, pool: Parallel) \
-        -> Tuple[str, Dict[str, List[Tuple[str, int, int, int, int, int, int]]]]:
+        -> Tuple[str, Dict[str, List[Tuple[str, int, int, int]]]]:
     """
     Tokenize a given repository into bags of tokens with the necessary granularity. Return the
     correct name of the repository for links and a dictionary with bags' names as keys and
@@ -504,8 +493,9 @@ def tokenize_repository(repository: str, local: bool, gran: str, language: str, 
                      given parsing granularity, specific languages refer to themselves.
     :param pool: the Parallel class instance for multiprocessing.
     :return: the correct name of the repository for links and a dictionary with bags' names as keys
-    and the Counter objects of tokens and their counts as values. The bag's name is either a path
-    to file or a link to GitHub, with starting lines for functions and classes.
+    and the sequences of tokens and their parameters (starting byte, starting line, starting symbol
+    in line) as values. The bag's name is either a path to file or a link to GitHub, with starting
+    lines for functions and classes.
     """
     bags2tokens = {}
     repository = assert_trailing_slash(repository)
@@ -558,7 +548,7 @@ def tokenize_repository(repository: str, local: bool, gran: str, language: str, 
     return repository_name, bags2tokens
 
 
-def save_wabbit(reps2bags: Dict[str, Dict[str, List[Tuple[str, int, int, int, int, int, int]]]],
+def save_wabbit(reps2bags: Dict[str, Dict[str, List[Tuple[str, int, int, int]]]],
                 mode: str, gran: str, output_dir: str, filename: str) -> None:
     """
     Save the bags of tokens in the Vowpal Wabbit format: one bag per line, in the format
@@ -568,8 +558,7 @@ def save_wabbit(reps2bags: Dict[str, Dict[str, List[Tuple[str, int, int, int, in
                       sequences of tokens and their parameters as values.
     :param mode: The mode of parsing. 'counters' returns Counter objects of subtokens and their
                  count, 'sequences' returns full sequences of subtokens and their parameters:
-                 starting byte, ending byte, starting line, starting symbol in line, ending line,
-                 ending symbol in line.
+                 starting byte, starting line, starting symbol in line, ending symbol in line.
     :param gran: granularity of parsing. Values are ["projects", "files", "classes", "functions"].
     :param output_dir: full path to the output directory.
     :param filename: the name of the output file.
@@ -588,12 +577,13 @@ def save_wabbit(reps2bags: Dict[str, Dict[str, List[Tuple[str, int, int, int, in
             formatted_tokens.append("{token}:{count}".format(token=token[0], count=str(token[1])))
         return " ".join(formatted_tokens)
 
-    def sequence_to_wabbit(sequence: List[Tuple[str, int, int, int, int, int, int]]) -> str:
+    def sequence_to_wabbit(sequence: List[Tuple[str, int, int, int]]) -> str:
         """
-        Transforms a Counter object into a saving format of Wabbit:
-        "token1:parameters, token2:parameters...".
-        :param sequence: a list of tokens and their parameters.
-        :return: string "token1:parameters, token2:parameters..." sorted as in original code.
+        Transforms a sequence of tokens and their parameters into a saving format of Wabbit:
+        "token1:parameters token2:parameters...".
+        :param sequence: a list of tokens and their parameters - starting byte, starting line,
+        starting symbol in line.
+        :return: string "token1:parameters token2:parameters..." sorted as in original code.
         """
         formatted_tokens = []
         for token in sequence:

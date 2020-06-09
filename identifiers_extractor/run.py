@@ -34,9 +34,9 @@ if __name__ == "__main__":
     parser.add_argument("-p", "--parsing", choices=["counters", "sequences"], default="counters",
                         help="The mode of parsing. 'counters' returns Counter objects of subtokens"
                              " and their count, 'sequences' returns full sequences of subtokens "
-                             "and their parameters: starting byte, ending byte, starting line,"
-                             "starting symbol in line, ending line, ending symbol in line. For"
-                             " the 'projects' granularity, only 'counters' are available.")
+                             "and their parameters: starting byte, starting line, starting symbol"
+                             " in line. For the 'projects' granularity, only 'counters' are"
+                             " available.")
     parser.add_argument("-g", "--granularity",
                         choices=["projects", "files", "classes", "functions"], default="files",
                         help="The granularity level of parsing: 'projects' for the level of "
