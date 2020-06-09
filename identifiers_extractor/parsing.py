@@ -177,8 +177,8 @@ class TreeSitterParser:
         tokens_sequence = []
         for token_node in token_nodes:
             token_verbose = TreeSitterParser.get_code_from_node(code, token_node)
-            # Currently, each subtoken returns the coordinates of the original token
-            # (for using Git Blame, etc.). Maybe add later.
+            # Currently, each subtoken returns the coordinates of the original token.
+            # TODO: fix the subtokenization to account for the change of coordinates.
             subtokens = [(subtoken,) + token_verbose[1:] for subtoken
                          in list(Subtokenizer.process_token(token_verbose[0]))]
             tokens_sequence.extend(subtokens)
@@ -303,6 +303,8 @@ class PygmentsParser:
         for pair in pygments.lex(code, PygmentsParser.LEXERS[lang]):
             if any(pair[0] in sublist for sublist in PygmentsParser.IDENTIFIERS[lang]):
                 # TODO: implement indexes for tokens, it's possible in pygments. (0, 0, 0) for now.
+                # Currently, each subtoken returns the coordinates of the original token.
+                # TODO: fix the subtokenization to account for the change of coordinates.
                 subtokens = [(subtoken,) + (0, 0, 0) for subtoken
                              in list(Subtokenizer.process_token(pair[1]))]
                 tokens.extend(subtokens)
