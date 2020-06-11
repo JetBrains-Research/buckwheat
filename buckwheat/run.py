@@ -42,16 +42,17 @@ if __name__ == "__main__":
                         help="The granularity level of parsing: 'projects' for the level of "
                              "projects/directories, 'files' for the level of files, 'classes' for "
                              "the level of classes, and 'functions' for the level of functions.")
-    parser.add_argument("--language", choices=["all", "JavaScript", "Python", "Java", "Go", "C++",
-                                               "Ruby", "TypeScript", "PHP", "C#", "C", "Shell",
-                                               "Rust", "Scala", "Swift", "Kotlin", "Haskell"],
+    parser.add_argument("-l", "--language", choices=["all", "JavaScript", "Python", "Java", "Go",
+                                                     "C++", "Ruby", "TypeScript", "PHP", "C#", "C",
+                                                     "Shell", "Rust", "Scala", "Swift", "Kotlin",
+                                                     "Haskell"],
                         default="all", help="Language of parsing. By default, its all the "
                                             "languages supported in a given parsing granularity.")
-    parser.add_argument("-l", "--local", action="store_true",
-                        help="If passed, switches the tokenization into the local mode, where "
-                             "the input list must contain paths to local directories.")
     parser.add_argument("-f", "--format", choices=["wabbit"], default="wabbit",
                         help="The output format for saving. 'wabbit' for Vowpal Wabbit. "
                              "More formats to come.")
+    parser.add_argument("--local", action="store_true",
+                        help="If passed, switches the tokenization into the local mode, where "
+                             "the input list must contain paths to local directories.")
     args = parser.parse_args()
     main(args)
