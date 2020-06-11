@@ -4,7 +4,20 @@ Tree-sitter related functionality.
 import os
 import urllib.request
 
+from ..language_recognition.utils import identify_system
 from tree_sitter import Language, Parser
+
+DOWNLOAD_URLS = {
+    "Linux":
+        "https://github.com/areyde/buckwheat/releases/download/v1.1.1/tree-sitter-linux.tar.gz",
+    "Darwin":
+        "https://github.com/areyde/buckwheat/releases/download/v1.1.1/tree-sitter-darwin.tar.gz"
+}
+
+FILENAMES = {
+    "Linux": "tree-sitter.tar.gz",
+    "Darwin": "tree-sitter.tar.gz"
+}
 
 PARSERS = {}
 
@@ -14,7 +27,7 @@ def get_tree_sitter_dir() -> str:
     Get tree-sitter directory.
     :return: absolute path.
     """
-    return os.path.abspath(os.path.dirname(__file__))
+    return os.path.abspath(os.path.join(os.path.dirname(__file__), "build"))
 
 
 def get_tree_sitter_so() -> str:
@@ -22,9 +35,7 @@ def get_tree_sitter_so() -> str:
     Get build tree-sitter `.so` location.
     :return: absolute path.
     """
-    tree_sitter_dir = get_tree_sitter_dir()
-    bin_loc = os.path.join(tree_sitter_dir, "build", "langs.so")
-    return bin_loc
+    return os.path.abspath(os.path.join(get_tree_sitter_dir(), "langs.so"))
 
 
 def main() -> None:
@@ -32,12 +43,16 @@ def main() -> None:
     Initialize tree-sitter library.
     :return: None.
     """
-    url = "https://github.com/areyde/buckwheat/releases/download/v1.1.1/langs.so"
-    filename = "langs.so"
-    if not os.path.exists(get_tree_sitter_so()):
+    system = identify_system()
+    url = DOWNLOAD_URLS[system]
+    filename = FILENAMES[system]
+    if not os.path.exists(os.path.join(get_tree_sitter_dir(), filename)):
         urllib.request.urlretrieve(url,
-                                   os.path.abspath(os.path.join(get_tree_sitter_dir(), "build",
-                                                                filename)))
+                                   os.path.abspath(os.path.join(get_tree_sitter_dir(), filename)))
+    if not os.path.exists(get_tree_sitter_so()):
+        os.system("tar -xzf {tar} -C {directory}"
+                  .format(tar=os.path.abspath(os.path.join(get_tree_sitter_dir(), filename)),
+                          directory=get_tree_sitter_dir()))
     print("Parser successfully initialized.")
 
 

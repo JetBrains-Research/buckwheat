@@ -54,8 +54,7 @@ def main() -> None:
     url = DOWNLOAD_URLS[system]
     filename = FILENAMES[system]
     if not os.path.exists(os.path.abspath(os.path.join(get_enry_dir(), filename))):
-        urllib.request.urlretrieve(url,
-                                   os.path.abspath(os.path.join(get_enry_dir(), filename)))
+        urllib.request.urlretrieve(url, os.path.abspath(os.path.join(get_enry_dir(), filename)))
     if not os.path.exists(get_enry()):
         os.system("tar -xzf {tar} -C {directory}"
                   .format(tar=os.path.abspath(os.path.join(get_enry_dir(), filename)),
