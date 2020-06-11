@@ -33,6 +33,6 @@ jobs:
         git submodule update --init --recursive --depth 1
     - name: Test with Unittest
       run: |
-        python -m identifiers_extractor.parsers
-        python -m identifiers_extractor.language_recognition
-        python -m unittest discover identifiers_extractor.tests -t .
+        python -m buckwheat.parsing
+        python -m buckwheat.language_recognition
+        python -m unittest discover buckwheat.tests -t .

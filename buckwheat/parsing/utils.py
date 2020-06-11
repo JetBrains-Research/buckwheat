@@ -4,8 +4,9 @@ Tree-sitter related functionality.
 import os
 import urllib.request
 
-from ..language_recognition.utils import identify_system
 from tree_sitter import Language, Parser
+
+from ..language_recognition.utils import identify_system
 
 DOWNLOAD_URLS = {
     "Linux":

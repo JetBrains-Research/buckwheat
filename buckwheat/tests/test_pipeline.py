@@ -5,7 +5,7 @@ from collections import Counter
 import os
 import unittest
 
-from ..parsing import cmdline, recognize_languages, transform_files_list, \
+from ..main import cmdline, recognize_languages, transform_files_list, \
     tokenize_list_of_repositories
 
 tests_dir = os.path.abspath(os.path.dirname(__file__))

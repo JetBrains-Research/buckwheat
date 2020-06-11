@@ -4,8 +4,8 @@ Script for running the entire pipeline from the command line
 import argparse
 
 from .language_recognition.utils import main as initialize_enry
-from .parsers.utils import main as initialize_parser
-from .parsing import tokenize_list_of_repositories
+from .main import tokenize_list_of_repositories
+from .parsing.utils import main as initialize_parser
 
 
 def main(args: argparse.Namespace) -> None:

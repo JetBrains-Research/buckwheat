@@ -17,8 +17,8 @@ import pygments
 from tqdm import tqdm
 import tree_sitter
 
+from .parsing.utils import get_parser
 from .language_recognition.utils import get_enry
-from .parsers.utils import get_parser
 from .subtokenizing import TokenParser
 
 Subtokenizer = TokenParser()
@@ -54,7 +54,7 @@ def read_file(file: str) -> str:
 
 
 class TreeSitterParser:
-    # Tree-sitter parsers corresponding to a given language.
+    # Tree-sitter grammars corresponding to a given language.
     PARSERS = {"JavaScript": "javascript",
                "Python": "python",
                "Java": "java",
