@@ -1,6 +1,7 @@
 """
 Tokenization-related functionality.
 """
+import logging
 import os
 from tempfile import TemporaryDirectory
 from typing import Dict, List, Set, Tuple
@@ -10,7 +11,6 @@ from pygments.lexers.haskell import HaskellLexer
 from pygments.lexers.jvm import KotlinLexer, ScalaLexer
 from pygments.lexers.objective import SwiftLexer
 import pygments
-from tqdm import tqdm
 import tree_sitter
 
 from .language_recognition.utils import recognize_languages
@@ -460,8 +460,8 @@ def tokenize_list_of_repositories(repositories_file: str, output_dir: str, batch
         assert output_format in {"wabbit", "json"}
     except AssertionError:
         raise ValueError("Incorrect output format.")
-    print(f"Tokenizing the repositories in {mode} mode, with {gran} granularity, "
-          f"saving into {output_format} format. Languages: {language}.")
+    logging.info(f"Tokenizing the repositories in {mode} mode, with {gran} granularity, "
+                 f"saving into {output_format} format. Languages: {language}.")
     # Reading the input file and splitting repositories into batches.
     assert os.path.exists(repositories_file)
     with open(repositories_file) as fin:
@@ -474,18 +474,23 @@ def tokenize_list_of_repositories(repositories_file: str, output_dir: str, batch
     with Parallel(PROCESSES) as pool:
         # Iterating over batches
         for count_batch, batch in enumerate(repositories_batches):
-            print(f"Tokenizing batch {count_batch + 1} out of {len(repositories_batches)}.")
+            logging.info(f"Tokenizing batch {count_batch + 1} out of {len(repositories_batches)}.")
             reps2bags = {}
             filename = f"{output_format}_{mode}_{gran}_{count_batch}.txt"
             # Iterating over repositories in the batch
-            for repository in tqdm(batch):
+            for count_repository, repository in enumerate(batch):
+                logging.info(f">>> Tokenizing repository: {repository} "
+                             f"({count_repository + 1} out of {len(batch)}).")
                 try:
                     repository_name, bags2tokens = tokenize_repository(repository, local,
                                                                        gran, language, pool)
                 except RepositoryError:
-                    print(f"{repository} is an incorrect link, skipping...")
+                    logging.warning(f"{repository} is an incorrect link, skipping...")
                     continue
                 reps2bags[repository_name] = bags2tokens
+            logging.info(f"Writing batch {count_batch + 1} out "
+                         f"of {len(repositories_batches)} to file.")
             if len(reps2bags.keys()) != 0:  # Skipping possible empty batches.
                 OutputFormats(output_format, reps2bags, mode, gran, output_dir, filename)
-    print("Tokenization successfully completed.")
+            logging.info(f"Finished {count_batch + 1} out of {len(repositories_batches)}.")
+    logging.info("Tokenization successfully completed.")

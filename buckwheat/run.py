@@ -2,6 +2,8 @@
 Script for running the entire pipeline from the command line
 """
 import argparse
+import logging
+import sys
 
 from .language_recognition.utils import main as initialize_enry
 from .main import tokenize_list_of_repositories
@@ -13,8 +15,10 @@ def main(args: argparse.Namespace) -> None:
     :param args: arguments of parsing and modeling.
     :return: None.
     """
-    initialize_parser()
+    logging.basicConfig(stream=sys.stdout, level=logging.INFO,
+                        format="%(asctime)s %(message)s", datefmt="%m/%d/%Y %H:%M:%S")
     initialize_enry()
+    initialize_parser()
     tokenize_list_of_repositories(repositories_file=args.input, output_dir=args.output,
                                   batch_size=int(args.batches), mode = args.parsing,
                                   gran=args.granularity, language=args.language, local=args.local,

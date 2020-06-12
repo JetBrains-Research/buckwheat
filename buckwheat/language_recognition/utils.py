@@ -2,6 +2,7 @@
 The downloading of Enry
 """
 import json
+import logging
 import os
 import platform
 import subprocess
@@ -56,12 +57,20 @@ def main() -> None:
     url = DOWNLOAD_URLS[system]
     filename = FILENAMES[system]
     if not os.path.exists(os.path.abspath(os.path.join(get_enry_dir(), filename))):
-        urllib.request.urlretrieve(url, os.path.abspath(os.path.join(get_enry_dir(), filename)))
+        try:
+            urllib.request.urlretrieve(url, os.path.abspath(os.path.join(get_enry_dir(), filename)))
+        except Exception as e:
+            logging.error("Failed to download language recognizer. {type}: {error}."
+                          .format(type=type(e).__name__, error=e))
     if not os.path.exists(get_enry()):
-        os.system("tar -xzf {tar} -C {directory}"
-                  .format(tar=os.path.abspath(os.path.join(get_enry_dir(), filename)),
-                          directory=get_enry_dir()))
-    print("Enry successfully initialized.")
+        try:
+            os.system("tar -xzf {tar} -C {directory}"
+                      .format(tar=os.path.abspath(os.path.join(get_enry_dir(), filename)),
+                              directory=get_enry_dir()))
+        except Exception as e:
+            logging.error("Failed to unpack language recognizer. {type}: {error}."
+                          .format(type=type(e).__name__, error=e))
+    logging.info("Language recognizer successfully initialized.")
 
 
 def recognize_languages(directory: str) -> dict:

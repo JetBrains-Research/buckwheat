@@ -1,6 +1,7 @@
 """
 Tree-sitter related functionality.
 """
+import logging
 import os
 import urllib.request
 
@@ -48,13 +49,21 @@ def main() -> None:
     url = DOWNLOAD_URLS[system]
     filename = FILENAMES[system]
     if not os.path.exists(os.path.join(get_tree_sitter_dir(), filename)):
-        urllib.request.urlretrieve(url,
-                                   os.path.abspath(os.path.join(get_tree_sitter_dir(), filename)))
+        try:
+            urllib.request.urlretrieve(url, os.path.abspath(
+                os.path.join(get_tree_sitter_dir(), filename)))
+        except Exception as e:
+            logging.error("Failed to download the parser. {type}: {error}."
+                          .format(type=type(e).__name__, error=e))
     if not os.path.exists(get_tree_sitter_so()):
-        os.system("tar -xzf {tar} -C {directory}"
-                  .format(tar=os.path.abspath(os.path.join(get_tree_sitter_dir(), filename)),
-                          directory=get_tree_sitter_dir()))
-    print("Parser successfully initialized.")
+        try:
+            os.system("tar -xzf {tar} -C {directory}"
+                      .format(tar=os.path.abspath(os.path.join(get_tree_sitter_dir(), filename)),
+                              directory=get_tree_sitter_dir()))
+        except Exception as e:
+            logging.error("Failed to unpack the parser. {type}: {error}."
+                          .format(type=type(e).__name__, error=e))
+    logging.info("Parser successfully initialized.")
 
 
 def get_parser(lang: str) -> Parser:
