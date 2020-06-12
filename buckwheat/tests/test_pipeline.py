@@ -1,21 +1,15 @@
 """
 Pipeline-related tests.
 """
-from collections import Counter
 import os
 import unittest
 
-from ..main import cmdline, recognize_languages, transform_files_list, \
-    tokenize_list_of_repositories
+from ..main import recognize_languages, tokenize_list_of_repositories, transform_files_list
 
 tests_dir = os.path.abspath(os.path.dirname(__file__))
 
 
 class TestPipeline(unittest.TestCase):
-    def test_cmdline(self):
-        command = "echo 'Darina'"
-        stdout = cmdline(command)
-        self.assertEqual(stdout, "Darina")
 
     def test_languages(self):
         lang2files = recognize_languages(os.path.abspath(os.path.join(tests_dir, "test_files")))

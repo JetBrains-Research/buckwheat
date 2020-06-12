@@ -5,7 +5,8 @@ from collections import Counter
 import os
 import unittest
 
-from ..main import get_tokens_sequence_from_file, sequence_to_counter
+from ..main import get_tokens_sequence_from_file
+from ..saving import sequence_to_counter
 
 tests_dir = os.path.abspath(os.path.dirname(__file__))
 
