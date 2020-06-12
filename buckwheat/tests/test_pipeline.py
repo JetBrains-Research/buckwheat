@@ -29,7 +29,7 @@ class TestPipeline(unittest.TestCase):
             os.path.join(tests_dir, "test_results")),
             100, "counters", "files", "all", True, "wabbit")
         with open(os.path.abspath(os.path.join(tests_dir, "test_results",
-                                               "wabbit_files_0.txt"))) as fin:
+                                               "wabbit_counters_files_0.txt"))) as fin:
             wabbit_lines = sum(1 for _ in fin)
         self.assertEqual(wabbit_lines, 16)
 

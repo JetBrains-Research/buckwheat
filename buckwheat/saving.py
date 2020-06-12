@@ -2,6 +2,7 @@
 Output-related functionality
 """
 from collections import Counter
+import json
 from operator import itemgetter
 import os
 from typing import Dict, List, Tuple
@@ -19,9 +20,30 @@ def sequence_to_counter(sequence: List[Tuple[str, int, int, int]]) -> Counter:
     return Counter(tokens)
 
 
+def merge_bags(bag2tokens: Dict[str, List[Tuple[str, int, int, int]]]) -> Counter:
+    """
+    Transform the sequences of tokens into counters and merge them for projects.
+    :param bag2tokens: a dictionary with bags' names as keys and sequences of tokens and their
+                       parameters as values.
+    :return: a Counter object of tokens and their counts..
+    """
+    repository_tokens = Counter()
+    for bag_tokens in bag2tokens.values():
+        repository_tokens += sequence_to_counter(bag_tokens)
+    return repository_tokens
+
+
 class OutputFormats:
-    @staticmethod
-    def save_wabbit(reps2bags: Dict[str, Dict[str, List[Tuple[str, int, int, int]]]],
+    def __init__(self, output_format: str,
+                 reps2bags: Dict[str, Dict[str, List[Tuple[str, int, int, int]]]],
+                 mode: str, gran: str, output_dir: str, filename: str):
+        if output_format == "wabbit":
+            self.save_wabbit(reps2bags, mode, gran, output_dir, filename)
+        elif output_format == "json":
+            self.save_json(reps2bags, mode, gran, output_dir, filename)
+
+    @classmethod
+    def save_wabbit(cls, reps2bags: Dict[str, Dict[str, List[Tuple[str, int, int, int]]]],
                     mode: str, gran: str, output_dir: str, filename: str) -> None:
         """
         Save the bags of tokens in the Vowpal Wabbit format: one bag per line, in the format
@@ -45,7 +67,7 @@ class OutputFormats:
             :param tokens_counter: a Counter object of tokens and their count.
             :return: string "token1:count1, token2:count2..." sorted alphabetically.
             """
-            sorted_tokens = sorted(tokens_counter.items(), key=itemgetter(0))
+            sorted_tokens = sorted(tokens_counter.items(), key=itemgetter(1))
             formatted_tokens = []
             for token in sorted_tokens:
                 formatted_tokens.append("{token}:{count}"
@@ -72,9 +94,7 @@ class OutputFormats:
             # Only Counter mode available (sequence is meaningless for the entire project).
             if gran == "projects":
                 for repository_name in reps2bags.keys():
-                    repository_tokens = Counter()
-                    for bag_tokens in reps2bags[repository_name].values():
-                        repository_tokens += sequence_to_counter(bag_tokens)
+                    repository_tokens = merge_bags(reps2bags[repository_name])
                     fout.write("{name} {tokens}\n"
                                .format(name=repository_name,
                                        tokens=counter_to_wabbit(repository_tokens)))
@@ -90,5 +110,32 @@ class OutputFormats:
                         fout.write("{name} {tokens}\n"
                                    .format(name=bag_name, tokens=tokens))
 
-
-OUTPUT_FORMATS = {"wabbit": OutputFormats.save_wabbit}
+    @classmethod
+    def save_json(cls, reps2bags: Dict[str, Dict[str, List[Tuple[str, int, int, int]]]],
+                  mode: str, gran: str, output_dir: str, filename: str) -> None:
+        """
+        Save the bags of tokens as JSON files
+        :param reps2bags: a dictionary with repositories names as keys and their bags of tokens as
+                          values. The bags are also dictionaries with bags' names as keys and
+                          sequences of tokens and their parameters as values.
+        :param mode: The mode of parsing. 'counters' returns Counter objects of subtokens and their
+                     count, 'sequences' returns full sequences of subtokens and their parameters:
+                     starting byte, starting line, starting symbol in line, ending symbol in line.
+        :param gran: granularity of parsing. Values are ["projects", "files", "classes",
+                     "functions"].
+        :param output_dir: full path to the output directory.
+        :param filename: the name of the output file.
+        :return: none.
+        """
+        with open(os.path.abspath(os.path.join(output_dir, filename)), "w+") as fout:
+            if gran == "projects":
+                for repository_name in reps2bags.keys():
+                    reps2bags[repository_name] = merge_bags(reps2bags[repository_name])
+                json.dump(reps2bags, fout, ensure_ascii=False, indent=4)
+            else:
+                if mode == "counters":
+                    for repository_name in reps2bags.keys():
+                        for bag_name in reps2bags[repository_name].keys():
+                            reps2bags[repository_name][bag_name] = sequence_to_counter(
+                                reps2bags[repository_name][bag_name])
+                json.dump(reps2bags, fout, ensure_ascii=False, indent=4)

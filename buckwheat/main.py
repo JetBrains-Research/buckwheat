@@ -15,7 +15,7 @@ import tree_sitter
 
 from .language_recognition.utils import recognize_languages
 from .parsing.utils import get_parser
-from .saving import OUTPUT_FORMATS
+from .saving import OutputFormats
 from .subtokenizing import TokenParser
 from .utils import assert_trailing_slash, clone_repository, get_full_path, \
     get_latest_commit, read_file, split_list_into_batches, RepositoryError
@@ -206,8 +206,9 @@ class TreeSitterParser:
             return [(file, [])]
         object_tokens = []
         for object_node in object_nodes:
-            object_tokens.append(("{file}#L{start_line}"
-                                  .format(file=file, start_line=object_node.start_point[0] + 1),
+            object_tokens.append(("{file}#L{start_line}-L{end_line}"
+                                  .format(file=file, start_line=object_node.start_point[0] + 1,
+                                          end_line=object_node.end_point[0] + 1),
                                   TreeSitterParser.get_tokens_sequence_from_node(code, object_node,
                                                                                  lang)))
         return object_tokens
@@ -402,12 +403,7 @@ def tokenize_repository(repository: str, local: bool, gran: str, language: str, 
             except RepositoryError:
                 raise
             commit = get_latest_commit(directory)
-            if gran == "projects":
-                # With projects granularity, the link to GitHub is to the entire tree
-                repository_name = f"{repository}tree/{commit}/"
-            else:
-                # With other granularities, the links will be to specific files
-                repository_name = f"{repository}blob/{commit}/"
+            repository_name = f"{repository}tree/{commit}/"
         lang2files = recognize_languages(directory)  # Recognize the languages in the directory
         files = transform_files_list(lang2files, gran, language)
         # Gather the tokens for the correct granularity of parsing
@@ -461,7 +457,7 @@ def tokenize_list_of_repositories(repositories_file: str, output_dir: str, batch
     except AssertionError:
         raise ValueError("Incorrect granularity of parsing.")
     try:
-        assert output_format in {"wabbit"}
+        assert output_format in {"wabbit", "json"}
     except AssertionError:
         raise ValueError("Incorrect output format.")
     print(f"Tokenizing the repositories in {mode} mode, with {gran} granularity, "
@@ -480,7 +476,7 @@ def tokenize_list_of_repositories(repositories_file: str, output_dir: str, batch
         for count_batch, batch in enumerate(repositories_batches):
             print(f"Tokenizing batch {count_batch + 1} out of {len(repositories_batches)}.")
             reps2bags = {}
-            filename = f"wabbit_{gran}_{count_batch}.txt"
+            filename = f"{output_format}_{mode}_{gran}_{count_batch}.txt"
             # Iterating over repositories in the batch
             for repository in tqdm(batch):
                 try:
@@ -491,5 +487,5 @@ def tokenize_list_of_repositories(repositories_file: str, output_dir: str, batch
                     continue
                 reps2bags[repository_name] = bags2tokens
             if len(reps2bags.keys()) != 0:  # Skipping possible empty batches.
-                OUTPUT_FORMATS[output_format](reps2bags, mode, gran, output_dir, filename)
+                OutputFormats(output_format, reps2bags, mode, gran, output_dir, filename)
     print("Tokenization successfully completed.")

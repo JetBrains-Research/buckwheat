@@ -48,9 +48,9 @@ if __name__ == "__main__":
                                                      "Haskell"],
                         default="all", help="Language of parsing. By default, its all the "
                                             "languages supported in a given parsing granularity.")
-    parser.add_argument("-f", "--format", choices=["wabbit"], default="wabbit",
-                        help="The output format for saving. 'wabbit' for Vowpal Wabbit. "
-                             "More formats to come.")
+    parser.add_argument("-f", "--format", choices=["wabbit", "json"], default="wabbit",
+                        help="The output format for saving. 'wabbit' for Vowpal Wabbit, "
+                             "'json' for JSON.")
     parser.add_argument("--local", action="store_true",
                         help="If passed, switches the tokenization into the local mode, where "
                              "the input list must contain paths to local directories.")
