@@ -1,8 +1,10 @@
 """
 The downloading of Enry
 """
+import json
 import os
 import platform
+import subprocess
 import urllib.request
 
 DOWNLOAD_URLS = {
@@ -60,3 +62,16 @@ def main() -> None:
                   .format(tar=os.path.abspath(os.path.join(get_enry_dir(), filename)),
                           directory=get_enry_dir()))
     print("Enry successfully initialized.")
+
+
+def recognize_languages(directory: str) -> dict:
+    """
+    Recognize the languages in the directory using Enry and return a dictionary
+    {language1: [files], language2: [files], ...}.
+    :param directory: the path to the directory.
+    :return: dictionary {language1: [files], language2: [files], ...}
+    """
+    enry = get_enry()
+    args = [enry, "-json", directory]
+    res = subprocess.check_output(args)
+    return json.loads(res)

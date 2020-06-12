@@ -1,13 +1,9 @@
 """
-Parsing-related functionality.
+Tokenization-related functionality.
 """
-from collections import Counter
-import json
-from operator import itemgetter
 import os
-from subprocess import PIPE, Popen
 from tempfile import TemporaryDirectory
-from typing import Any, Dict, List, Set, Tuple
+from typing import Dict, List, Set, Tuple
 
 from joblib import cpu_count, delayed, Parallel
 from pygments.lexers.haskell import HaskellLexer
@@ -17,9 +13,12 @@ import pygments
 from tqdm import tqdm
 import tree_sitter
 
+from .language_recognition.utils import recognize_languages
 from .parsing.utils import get_parser
-from .language_recognition.utils import get_enry
+from .saving import OUTPUT_FORMATS
 from .subtokenizing import TokenParser
+from .utils import assert_trailing_slash, clone_repository, get_full_path, \
+    get_latest_commit, read_file, split_list_into_batches, RepositoryError
 
 Subtokenizer = TokenParser()
 
@@ -32,25 +31,6 @@ SUPPORTED_LANGUAGES = {"tree-sitter": {"JavaScript", "Python", "Java", "Go", "C+
                                    "TSX", "PHP", "C#"},
                        "functions": {"JavaScript", "Python", "Java", "Go", "C++", "Ruby",
                                      "TypeScript", "TSX", "PHP", "C#", "C", "Shell", "Rust"}}
-
-
-class RepositoryError(ValueError):
-    """
-    A special error for catching wrong links to repositories and skipping such repositories.
-    """
-
-    def __init__(self, *args):
-        ValueError.__init__(self, *args)
-
-
-def read_file(file: str) -> str:
-    """
-    Read the contents of the file.
-    :param file: the path to the file.
-    :return: the contents of the file.
-    """
-    with open(file) as fin:
-        return fin.read()
 
 
 class TreeSitterParser:
@@ -344,90 +324,6 @@ def get_tokens_sequence_from_file(file: str, lang: str) -> \
         return [(file, [])]
 
 
-def sequence_to_counter(sequence: List[Tuple[str, int, int, int]]) -> Counter:
-    """
-    Transforms a list of tuples with tokens and their information into a counter object.
-    :param sequence: a list of tuples, where the first element of the tuple is a token.
-    :return: a Counter object of the tokens and their counts.
-    """
-    tokens = []
-    for token in sequence:
-        tokens.append(token[0])
-    return Counter(tokens)
-
-
-def split_list_into_batches(lst: List[Any], batch_size: int) -> List[List[Any]]:
-    """
-    Split a given list into sublists with a given maximum number of items.
-    :param lst: a list.
-    :param batch_size: the maximum number of items in the sublists.
-    :return: a list of lists, splitting the original list into batches.
-    """
-    return [lst[x:x + batch_size] for x in range(0, len(lst), batch_size)]
-
-
-def assert_trailing_slash(link: str) -> str:
-    """
-    Add a trailing slash to a link if there isn't one.
-    :param link: link to directory or Web site.
-    :return: the same link with a trailing slash.
-    """
-    link = link.rstrip()
-    if link[-1] == "/":
-        return link
-    else:
-        return link + "/"
-
-
-def cmdline(command: str) -> str:
-    """
-    Execute a given command and catch its stdout.
-    :param command: a command to execute.
-    :return: stdout.
-    """
-    process = Popen(
-        args=command,
-        stdout=PIPE,
-        shell=True
-    )
-    return process.communicate()[0].decode("utf8").rstrip()
-
-
-def clone_repository(repository: str, directory: str) -> None:
-    """
-    Clone a given repository into a folder.
-    :param repository: a link to GitHub repository, either HTTP or HTTPs.
-    :param directory: path to target directory to clone the repository.
-    :return: none.
-    """
-    if "://" in repository:
-        body = repository.split("://")[1]
-    else:
-        raise RepositoryError(f"{repository} is not a valid link!")
-    repository = "https://user:password@" + body
-    os.system(f"git clone --quiet --depth 1 {repository} {directory}")
-
-
-def get_latest_commit(directory: str) -> str:
-    """
-    Get the current commit hash from the Git directory.
-    :param directory: the path to a Git directory.
-    :return: commit hash.
-    """
-    return cmdline(f"cd {directory}; git rev-parse HEAD")
-
-
-def recognize_languages(directory: str) -> dict:
-    """
-    Recognize the languages in the directory using Enry and return a dictionary
-    {language1: [files], language2: [files], ...}.
-    :param directory: the path to the directory.
-    :return: dictionary {language1: [files], language2: [files], ...}
-    """
-    return json.loads(cmdline("{enry_loc} -json -mode files {directory}"
-                              .format(enry_loc=get_enry(), directory=directory)))
-
-
 def transform_files_list(lang2files: Dict[str, str], gran: str,
                          language: str) -> List[Tuple[str, str]]:
     """
@@ -466,17 +362,6 @@ def transform_files_list(lang2files: Dict[str, str], gran: str,
             for file in lang2files[lang]:
                 files.append((file, lang))
     return files
-
-
-def get_full_path(file: str, directory: str) -> str:
-    """
-    Get the full path to file from the full path to a directory and a relative path to that
-    file in that directory.
-    :param file: the relative path to file in a directory.
-    :param directory: the full path of a directory.
-    :return: the full path to file.
-    """
-    return os.path.abspath(os.path.join(directory, file))
 
 
 def tokenize_repository(repository: str, local: bool, gran: str, language: str, pool: Parallel) \
@@ -550,74 +435,6 @@ def tokenize_repository(repository: str, local: bool, gran: str, language: str, 
     return repository_name, bags2tokens
 
 
-def save_wabbit(reps2bags: Dict[str, Dict[str, List[Tuple[str, int, int, int]]]],
-                mode: str, gran: str, output_dir: str, filename: str) -> None:
-    """
-    Save the bags of tokens in the Vowpal Wabbit format: one bag per line, in the format
-    "name token1:parameters token2:parameters...". When run again, overwrites the data.
-    :param reps2bags: a dictionary with repositories names as keys and their bags of tokens as
-                      values. The bags are also dictionaries with bags' names as keys and
-                      sequences of tokens and their parameters as values.
-    :param mode: The mode of parsing. 'counters' returns Counter objects of subtokens and their
-                 count, 'sequences' returns full sequences of subtokens and their parameters:
-                 starting byte, starting line, starting symbol in line, ending symbol in line.
-    :param gran: granularity of parsing. Values are ["projects", "files", "classes", "functions"].
-    :param output_dir: full path to the output directory.
-    :param filename: the name of the output file.
-    :return: none.
-    """
-    def counter_to_wabbit(tokens: Counter) -> str:
-        """
-        Transforms a Counter object into a saving format of Wabbit:
-        "token1:count1, token2:count2..."
-        :param tokens: a Counter object of tokens and their count.
-        :return: string "token1:count1, token2:count2..." sorted alphabetically.
-        """
-        sorted_tokens = sorted(tokens.items(), key=itemgetter(0))
-        formatted_tokens = []
-        for token in sorted_tokens:
-            formatted_tokens.append("{token}:{count}".format(token=token[0], count=str(token[1])))
-        return " ".join(formatted_tokens)
-
-    def sequence_to_wabbit(sequence: List[Tuple[str, int, int, int]]) -> str:
-        """
-        Transforms a sequence of tokens and their parameters into a saving format of Wabbit:
-        "token1:parameters token2:parameters...".
-        :param sequence: a list of tokens and their parameters - starting byte, starting line,
-        starting symbol in line.
-        :return: string "token1:parameters token2:parameters..." sorted as in original code.
-        """
-        formatted_tokens = []
-        for token in sequence:
-            parameters = ",".join([str(parameter) for parameter in token[1:]])
-            formatted_tokens.append("{token}:{parameters}".format(token=token[0],
-                                                                  parameters=parameters))
-        return " ".join(formatted_tokens)
-
-    with open(os.path.abspath(os.path.join(output_dir, filename)), "w+") as fout:
-        # If the granularity is 'projects', all the bags for each project are merged into one.
-        # Only Counter mode available (sequence is meaningless for the entire project).
-        if gran == "projects":
-            for repository_name in reps2bags.keys():
-                repository_tokens = Counter()
-                for bag_tokens in reps2bags[repository_name].values():
-                    repository_tokens += sequence_to_counter(bag_tokens)
-                fout.write("{name} {tokens}\n"
-                           .format(name=repository_name,
-                                   tokens=counter_to_wabbit(repository_tokens)))
-        # If the granularity is 'files' or finer, then each bag is saved individually.
-        else:
-            for repository_name in reps2bags.keys():
-                for bag_name in reps2bags[repository_name].keys():
-                    if mode == "counters":
-                        tokens = counter_to_wabbit(sequence_to_counter(
-                                           reps2bags[repository_name][bag_name]))
-                    elif mode == "sequences":
-                        tokens = sequence_to_wabbit(reps2bags[repository_name][bag_name])
-                    fout.write("{name} {tokens}\n"
-                               .format(name=bag_name, tokens=tokens))
-
-
 def tokenize_list_of_repositories(repositories_file: str, output_dir: str, batch_size: int,
                                   mode: str, gran: str, language: str, local: bool,
                                   output_format: str) -> None:
@@ -674,6 +491,5 @@ def tokenize_list_of_repositories(repositories_file: str, output_dir: str, batch
                     continue
                 reps2bags[repository_name] = bags2tokens
             if len(reps2bags.keys()) != 0:  # Skipping possible empty batches.
-                if output_format == "wabbit":
-                    save_wabbit(reps2bags, mode, gran, output_dir, filename)
+                OUTPUT_FORMATS[output_format](reps2bags, mode, gran, output_dir, filename)
     print("Tokenization successfully completed.")
