@@ -13,6 +13,7 @@ from pygments.lexers.objective import SwiftLexer
 import pygments
 import tree_sitter
 
+from .dataclasses import IdentifierData
 from .language_recognition.utils import recognize_languages
 from .parsing.utils import get_parser
 from .saving import OutputFormats
@@ -124,31 +125,29 @@ class TreeSitterParser:
         return nodes
 
     @staticmethod
-    def get_code_from_node(code: bytes, node: tree_sitter.Node) -> Tuple[str, int, int, int]:
+    def get_identifier_from_node(code: bytes, node: tree_sitter.Node) -> IdentifierData:
         """
-        Given a node of the AST and the code from which this AST was built, return the original
-        code corresponding to this node and its parameters: starting byte, starting line,
-        starting symbol in line.
+        Given an identifier node of the AST and the code from which this AST was built,
+        return the IdentifierData object.
         :param code: the original code in bytes.
         :param node: the node of the tree-sitter AST.
-        :return: tuple (code, starting byte, starting line, starting symbol in line).
+        :return: IdentifierData object.
         """
         start_byte, end_byte = TreeSitterParser.get_positional_bytes(node)
-        code_snippet = code[start_byte:end_byte].decode("utf-8")
-        start_line, start_symbol_in_line = node.start_point
-        return code_snippet, start_byte, start_line, start_symbol_in_line
+        identifier = code[start_byte:end_byte].decode("utf-8")
+        start_line, start_column = node.start_point
+        return IdentifierData(identifier, start_byte, start_line, start_column)
 
     @staticmethod
     def get_tokens_sequence_from_node(code: bytes, node: tree_sitter.Node, lang: str) -> \
-            List[Tuple[str, int, int, int]]:
+            List[IdentifierData]:
         """
         Given a node of the AST and the code from which this AST was built, gather a list of
-        tuples: subtokens of identifiers and their parameters: starting byte, starting line,
-        starting symbol in line.
+        subtokens of identifiers in it as IdentifierData objects.
         :param code: the original code in bytes.
         :param node: the node of the tree-sitter AST.
         :param lang: the language of code.
-        :return: list of tuples (subtoken, starting byte, starting line, starting symbol in line).
+        :return: list of IdentifierData objects.
         """
         try:
             token_nodes = TreeSitterParser.traverse_tree(node, TreeSitterParser.IDENTIFIERS[lang])
@@ -156,22 +155,24 @@ class TreeSitterParser:
             return []
         tokens_sequence = []
         for token_node in token_nodes:
-            token_verbose = TreeSitterParser.get_code_from_node(code, token_node)
+            token = TreeSitterParser.get_identifier_from_node(code, token_node)
             # Currently, each subtoken returns the coordinates of the original token.
             # TODO: fix the subtokenization to account for the change of coordinates.
-            subtokens = [(subtoken,) + token_verbose[1:] for subtoken
-                         in list(Subtokenizer.process_token(token_verbose[0]))]
+            subtokens = [IdentifierData(identifier=subtoken, start_byte=token.start_byte,
+                                        start_line=token.start_line,
+                                        start_column=token.start_column)
+                         for subtoken in list(Subtokenizer.process_token(token.identifier))]
             tokens_sequence.extend(subtokens)
         return tokens_sequence
 
     @staticmethod
-    def get_tokens_sequence_from_code(code: str, lang: str) -> List[Tuple[str, int, int, int]]:
+    def get_tokens_sequence_from_code(code: str, lang: str) -> List[IdentifierData]:
         """
-        Given the code and its language, gather subtokens of identifiers and their parameters:
-        starting byte, starting line, starting symbol in line.
+        Given the code and its language, gather subtokens of identifiers in it as
+        IdentifierData objects.
         :param code: source code as a string.
         :param lang: language of the code.
-        :return: list of tuples (subtoken, starting byte, starting line, starting symbol in line).
+        :return: list of IdentifierData objects.
         """
         try:
             assert lang in SUPPORTED_LANGUAGES["tree-sitter"]
@@ -184,17 +185,16 @@ class TreeSitterParser:
 
     @staticmethod
     def get_tokens_sequence_from_objects(file: str, lang: str, types: Set[str]) -> \
-            List[Tuple[str, List[Tuple[str, int, int, int]]]]:
+            List[Tuple[str, List[IdentifierData]]]:
         """
         Given a file, its language and the necessary types of objects (classes or functions),
-        gather lists of subtokens of identifiers and their parameters: starting byte, starting
-        line, starting symbol in line - for each object. Returns a list of tuples
-        ({file_path}#L{starting_line}, list of tuples with subtokens), one tuple per object.
+        gather lists of subtokens of identifiers as lists of IdentifierData for each object.
+        Returns a list of tuples (path to file with lines, list of IdentifierData objects).
         :param file: the full path to file.
         :param lang: the language of the file.
         :param types: the set of necessary tree-sitter types of the necessary objects.
-        :return: a list of tuples: ({file_path}#L{starting_line}, list of tuples with subtokens
-                 and their parameters).
+        :return: a list of tuples: ({file_path}#L{start_line}-L{end_line},
+                                    list of IdentifierData objects).
         """
         code = read_file(file)
         code = bytes(code, "utf-8")
@@ -215,17 +215,15 @@ class TreeSitterParser:
 
     @staticmethod
     def get_tokens_sequence_from_classes(file: str, lang: str) \
-            -> List[Tuple[str, List[Tuple[str, int, int, int]]]]:
+            -> List[Tuple[str, List[IdentifierData]]]:
         """
-        Given a file and its language, gather a lists of subtokens of identifiers and their
-        parameters: starting byte, starting line, starting symbol in line within the classes of
-        this file. Returns a list of tuples ({file_path}#L{starting_line}, list of tuples with
-        subtokens), one tuple per class. In case of errors returns a tuple of the file name
-        and an empty list (for bulk processing of files).
+        Given a file and its language, gather lists of subtokens of identifiers as lists of
+        IdentifierData for each class. Returns a list of tuples (path to file with lines,
+        list of IdentifierData objects).
         :param file: the full path to file.
         :param lang: the language of the file.
-        :return: a list of tuples per class: ({file_path}#L{starting_line},
-                 list of tuples with subtokens and their parameters).
+        :return: a list of tuples, one per class: ({file_path}#L{start_line}-L{end_line},
+                                                  list of IdentifierData objects).
         """
         try:
             return TreeSitterParser.get_tokens_sequence_from_objects(file, lang, TreeSitterParser
@@ -235,17 +233,15 @@ class TreeSitterParser:
 
     @staticmethod
     def get_tokens_sequence_from_functions(file: str, lang: str) \
-            -> List[Tuple[str, List[Tuple[str, int, int, int]]]]:
+            -> List[Tuple[str, List[IdentifierData]]]:
         """
-        Given a file and its language, gather a lists of subtokens of identifiers and their
-        parameters: starting byte, starting line, starting symbol in line within the functions of
-        this file. Returns a list of tuples ({file_path}#L{starting_line}, list of tuples with
-        subtokens), one tuple per function. In case of errors returns a tuple of the file name
-        and an empty list (for bulk processing of files).
+        Given a file and its language, gather lists of subtokens of identifiers as lists of
+        IdentifierData for each function. Returns a list of tuples (path to file with lines,
+        list of IdentifierData objects).
         :param file: the full path to file.
         :param lang: the language of the file.
-        :return: a list of tuples per function: ({file_path}#L{starting_line},
-                 list of tuples with subtokens and their parameters).
+        :return: a list of tuples, one per function: ({file_path}#L{start_line}-L{end_line},
+                                                      list of IdentifierData objects).
         """
         try:
             return TreeSitterParser.get_tokens_sequence_from_objects(file, lang, TreeSitterParser
@@ -268,13 +264,12 @@ class PygmentsParser:
 
     @staticmethod
     def get_tokens_sequence_from_code(code: str, lang: str) -> \
-            List[Tuple[str, int, int, int]]:
+            List[IdentifierData]:
         """
-        Given the code and its language, gather subtokens of identifiers and their parameters:
-        starting byte, starting line, starting symbol in line.
+        Given the code and its language, gather subtokens of identifiers as IdentifierData objects.
         :param code: the code to parse.
         :param lang: the language of the code fragment.
-        :return: list of tuples (subtoken, starting byte, starting line, starting symbol in line).
+        :return: list of IdentifierData objects.
         """
         try:
             assert lang in SUPPORTED_LANGUAGES["pygments"]
@@ -286,20 +281,19 @@ class PygmentsParser:
                 # TODO: implement indexes for tokens, it's possible in pygments. (0, 0, 0) for now.
                 # Currently, each subtoken returns the coordinates of the original token.
                 # TODO: fix the subtokenization to account for the change of coordinates.
-                subtokens = [(subtoken,) + (0, 0, 0) for subtoken
-                             in list(Subtokenizer.process_token(pair[1]))]
+                subtokens = [IdentifierData(subtoken, 0, 0, 0)
+                             for subtoken in list(Subtokenizer.process_token(pair[1]))]
                 tokens.extend(subtokens)
         return tokens
 
 
 def get_tokens_sequence_from_code(code: str, lang: str) -> \
-        List[Tuple[str, int, int, int]]:
+        List[IdentifierData]:
     """
-    Given the code and its language, gather subtokens of identifiers and their parameters:
-    starting byte, starting line, starting symbol in line.
+    Given the code and its language, gather subtokens of identifiers as IdentifierData objects.
     :param code: the code to parse.
     :param lang: the language of the code fragment.
-    :return: list of tuples (subtoken, starting byte, starting line, starting symbol in line).
+    :return: list of IdentifierData objects.
     """
     if lang in SUPPORTED_LANGUAGES["tree-sitter"]:
         return TreeSitterParser.get_tokens_sequence_from_code(code, lang)
@@ -310,13 +304,12 @@ def get_tokens_sequence_from_code(code: str, lang: str) -> \
 
 
 def get_tokens_sequence_from_file(file: str, lang: str) -> \
-        List[Tuple[str, List[Tuple[str, int, int, int]]]]:
+        List[Tuple[str, List[IdentifierData]]]:
     """
-    Given the file and its language, gather subtokens of identifiers and their parameters:
-    starting byte, starting line, starting symbol in line.
-    :param file: the full path to file.
-    :param lang: the language of the file.
-    :return: list of tuples (subtoken, starting byte, starting line, starting symbol in line).
+    Given the file and its language, gather subtokens of identifiers as IdentifierData objects.
+    :param file: the code to parse.
+    :param lang: the language of the code fragment.
+    :return: list with a single tuple (filename, list of IdentifierData objects).
     """
     try:
         code = read_file(file)
@@ -366,7 +359,7 @@ def transform_files_list(lang2files: Dict[str, str], gran: str,
 
 
 def tokenize_repository(repository: str, local: bool, gran: str, language: str, pool: Parallel) \
-        -> Tuple[str, Dict[str, List[Tuple[str, int, int, int]]]]:
+        -> Tuple[str, Dict[str, List[IdentifierData]]]:
     """
     Tokenize a given repository into bags of tokens with the necessary granularity. Return the
     correct name of the repository for links and a dictionary with bags' names as keys and
@@ -397,6 +390,7 @@ def tokenize_repository(repository: str, local: bool, gran: str, language: str, 
                 raise RepositoryError(f"{directory} doesn't exist!")
             repository_name = directory
         else:
+            logging.debug(f"Cloning {repository}.")
             directory = td  # Working with a temporary directory in the remote mode
             try:
                 clone_repository(repository, directory)
@@ -404,9 +398,11 @@ def tokenize_repository(repository: str, local: bool, gran: str, language: str, 
                 raise
             commit = get_latest_commit(directory)
             repository_name = f"{repository}tree/{commit}/"
+        logging.debug(f"Recognizing languages is {repository}.")
         lang2files = recognize_languages(directory)  # Recognize the languages in the directory
         files = transform_files_list(lang2files, gran, language)
         # Gather the tokens for the correct granularity of parsing
+        logging.debug(f"Parsing files in {repository}.")
         if gran in ["projects", "files"]:
             chunk_results = pool([delayed(get_tokens_sequence_from_file)
                                   (get_full_path(file[0], directory), file[1])
@@ -419,6 +415,7 @@ def tokenize_repository(repository: str, local: bool, gran: str, language: str, 
             chunk_results = pool([delayed(TreeSitterParser.get_tokens_sequence_from_functions)
                                   (get_full_path(file[0], directory), file[1])
                                   for file in files])
+        logging.debug(f"Gathering results for {repository}.")
         for chunk_result in chunk_results:
             for bag in chunk_result:
                 if len(bag[1]) != 0:  # Skipping the possible empty bags
@@ -479,8 +476,8 @@ def tokenize_list_of_repositories(repositories_file: str, output_dir: str, batch
             filename = f"{output_format}_{mode}_{gran}_{count_batch}.txt"
             # Iterating over repositories in the batch
             for count_repository, repository in enumerate(batch):
-                logging.info(f">>> Tokenizing repository: {repository} "
-                             f"({count_repository + 1} out of {len(batch)}).")
+                logging.info(f"Tokenizing repository: {repository} ({count_repository + 1} "
+                             f"out of {len(batch)} in batch {count_batch + 1}).")
                 try:
                     repository_name, bags2tokens = tokenize_repository(repository, local,
                                                                        gran, language, pool)

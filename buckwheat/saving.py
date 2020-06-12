@@ -3,28 +3,30 @@ Output-related functionality
 """
 from collections import Counter
 import json
+import logging
 from operator import itemgetter
 import os
-from typing import Dict, List, Tuple
+from typing import Dict, List
+
+from .dataclasses import IdentifierData
 
 
-def sequence_to_counter(sequence: List[Tuple[str, int, int, int]]) -> Counter:
+def sequence_to_counter(sequence: List[IdentifierData]) -> Counter:
     """
-    Transforms a list of tuples with tokens and their information into a counter object.
-    :param sequence: a list of tuples, where the first element of the tuple is a token.
+    Transforms a list of IdentifierData objects into a Counter object of identifiers.
+    :param sequence: a list of IdentifierData objects.
     :return: a Counter object of the tokens and their counts.
     """
     tokens = []
     for token in sequence:
-        tokens.append(token[0])
+        tokens.append(token.identifier)
     return Counter(tokens)
 
 
-def merge_bags(bag2tokens: Dict[str, List[Tuple[str, int, int, int]]]) -> Counter:
+def merge_bags(bag2tokens: Dict[str, List[IdentifierData]]) -> Counter:
     """
     Transform the sequences of tokens into counters and merge them for projects.
-    :param bag2tokens: a dictionary with bags' names as keys and sequences of tokens and their
-                       parameters as values.
+    :param bag2tokens: a dictionary with bags' names as keys and IdentifierData objects as values.
     :return: a Counter object of tokens and their counts..
     """
     repository_tokens = Counter()
@@ -35,7 +37,7 @@ def merge_bags(bag2tokens: Dict[str, List[Tuple[str, int, int, int]]]) -> Counte
 
 class OutputFormats:
     def __init__(self, output_format: str,
-                 reps2bags: Dict[str, Dict[str, List[Tuple[str, int, int, int]]]],
+                 reps2bags: Dict[str, Dict[str, List[IdentifierData]]],
                  mode: str, gran: str, output_dir: str, filename: str):
         if output_format == "wabbit":
             self.save_wabbit(reps2bags, mode, gran, output_dir, filename)
@@ -43,7 +45,7 @@ class OutputFormats:
             self.save_json(reps2bags, mode, gran, output_dir, filename)
 
     @classmethod
-    def save_wabbit(cls, reps2bags: Dict[str, Dict[str, List[Tuple[str, int, int, int]]]],
+    def save_wabbit(cls, reps2bags: Dict[str, Dict[str, List[IdentifierData]]],
                     mode: str, gran: str, output_dir: str, filename: str) -> None:
         """
         Save the bags of tokens in the Vowpal Wabbit format: one bag per line, in the format
@@ -74,7 +76,7 @@ class OutputFormats:
                                         .format(token=token[0], count=str(token[1])))
             return " ".join(formatted_tokens)
 
-        def sequence_to_wabbit(sequence: List[Tuple[str, int, int, int]]) -> str:
+        def sequence_to_wabbit(sequence: List[IdentifierData]) -> str:
             """
             Transforms a sequence of tokens and their parameters into a saving format of Wabbit:
             "token1:parameters token2:parameters...".
@@ -84,8 +86,9 @@ class OutputFormats:
             """
             formatted_tokens = []
             for token in sequence:
-                parameters = ",".join([str(parameter) for parameter in token[1:]])
-                formatted_tokens.append("{token}:{parameters}".format(token=token[0],
+                parameters = ",".join([str(parameter) for parameter in
+                                       [token.start_byte, token.start_line, token.start_column]])
+                formatted_tokens.append("{token}:{parameters}".format(token=token.identifier,
                                                                       parameters=parameters))
             return " ".join(formatted_tokens)
 
@@ -111,7 +114,7 @@ class OutputFormats:
                                    .format(name=bag_name, tokens=tokens))
 
     @classmethod
-    def save_json(cls, reps2bags: Dict[str, Dict[str, List[Tuple[str, int, int, int]]]],
+    def save_json(cls, reps2bags: Dict[str, Dict[str, List[IdentifierData]]],
                   mode: str, gran: str, output_dir: str, filename: str) -> None:
         """
         Save the bags of tokens as JSON files
@@ -133,9 +136,19 @@ class OutputFormats:
                     reps2bags[repository_name] = merge_bags(reps2bags[repository_name])
                 json.dump(reps2bags, fout, ensure_ascii=False, indent=4)
             else:
+                logging.debug(f"Preparing the dictionary for JSON file {filename}.")
                 if mode == "counters":
                     for repository_name in reps2bags.keys():
                         for bag_name in reps2bags[repository_name].keys():
                             reps2bags[repository_name][bag_name] = sequence_to_counter(
                                 reps2bags[repository_name][bag_name])
+                elif mode == "sequences":
+                    for repository_name in reps2bags.keys():
+                        for bag_name in reps2bags[repository_name].keys():
+                            for token_index in range(len(reps2bags[repository_name][bag_name])):
+                                token = reps2bags[repository_name][bag_name][token_index]
+                                reps2bags[repository_name][bag_name][token_index] = [
+                                    token.identifier, token.start_byte,
+                                    token.start_line, token.start_column]
+                logging.debug(f"Writing JSON to file {filename}.")
                 json.dump(reps2bags, fout, ensure_ascii=False, indent=4)
