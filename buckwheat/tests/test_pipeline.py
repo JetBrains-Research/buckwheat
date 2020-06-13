@@ -4,7 +4,7 @@ Pipeline-related tests.
 import os
 import unittest
 
-from ..main import recognize_languages, tokenize_list_of_repositories, transform_files_list
+from ..tokenizing import recognize_languages, tokenize_list_of_repositories, transform_files_list
 
 tests_dir = os.path.abspath(os.path.dirname(__file__))
 
@@ -27,7 +27,7 @@ class TestPipeline(unittest.TestCase):
         tokenize_list_of_repositories(os.path.abspath(os.path.join(
             tests_dir, "test_files", "test.txt")), os.path.abspath(
             os.path.join(tests_dir, "test_results")),
-            100, "counters", "files", "all", True, "wabbit")
+            100, "counters", "files", "all", True, "wabbit", subtokenize=True)
         with open(os.path.abspath(os.path.join(tests_dir, "test_results",
                                                "wabbit_counters_files_0.txt"))) as fin:
             wabbit_lines = sum(1 for _ in fin)

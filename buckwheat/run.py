@@ -6,8 +6,8 @@ import logging
 import sys
 
 from .language_recognition.utils import main as initialize_enry
-from .main import tokenize_list_of_repositories
 from .parsing.utils import main as initialize_parser
+from .tokenizing import tokenize_list_of_repositories
 
 
 def main(args: argparse.Namespace) -> None:
@@ -22,7 +22,7 @@ def main(args: argparse.Namespace) -> None:
     tokenize_list_of_repositories(repositories_file=args.input, output_dir=args.output,
                                   batch_size=int(args.batches), mode = args.parsing,
                                   gran=args.granularity, language=args.language, local=args.local,
-                                  output_format=args.format)
+                                  output_format=args.format, subtokenize=args.subtokenize)
 
 
 if __name__ == "__main__":
@@ -55,6 +55,10 @@ if __name__ == "__main__":
     parser.add_argument("-f", "--format", choices=["wabbit", "json"], default="wabbit",
                         help="The output format for saving. 'wabbit' for Vowpal Wabbit, "
                              "'json' for JSON.")
+    parser.add_argument("-s", "--subtokenize", action="store_true",
+                        help="If passed, all the tokens will be split into subtokens by "
+                             "camelCase and snake_case, and also stemmed. For the details of "
+                             "subtokenization, see subtokenizing.py.")
     parser.add_argument("--local", action="store_true",
                         help="If passed, switches the tokenization into the local mode, where "
                              "the input list must contain paths to local directories.")

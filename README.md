@@ -25,6 +25,7 @@ The tool currently works on Linux and MacOS, correct versions of files will be d
     - `-g`: granularity of the tokenization. Possible values: `projects` for gathering bags of identifiers for the entire repositories, `files` for the file level (the default mode), `classes` for the level of classes (for the languages that have classes), `functions` for the level of functions (for the languages that have functions).
     - `-f`: output format. `wabbit` (the default value) for [Vowpal Wabbit](https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Input-format), `json` for JSON.
     - `-l`: if passed with a specific language, then only files in this language are considered. Please note that if run with a granularity that doesn't support this language, it will produce an error.
+    - `-s`: if passed, all the tokens will be split into subtokens by camelCase and snake_case, and also stemmed. For the details of subtokenization, see `subtokenizing.py`.
     - `--local`: if passed, switches the tokenization into the local mode, where the input file must contain the paths to local directories.
 
 ## How it works

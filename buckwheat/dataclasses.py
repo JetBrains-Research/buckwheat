@@ -5,7 +5,7 @@ import dataclasses
 from typing import Tuple
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class IdentifierData:
     """
     Data class to store individual identifiers and their positional coordinates.
@@ -16,7 +16,7 @@ class IdentifierData:
     start_column: int
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class ObjectData:
     """
     Data class to store objects (classes and functions) and their parameters: positional

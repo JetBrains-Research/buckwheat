@@ -5,8 +5,8 @@ from collections import Counter
 import os
 import unittest
 
-from ..main import get_tokens_sequence_from_file
 from ..saving import sequence_to_counter
+from ..tokenizing import get_tokens_sequence_from_file
 
 tests_dir = os.path.abspath(os.path.dirname(__file__))
 
@@ -93,7 +93,8 @@ class TestParser(unittest.TestCase):
         for data in TestParser.test_parser_data:
             with self.subTest():
                 file = os.path.abspath(os.path.join(tests_dir, "test_files", data[1]))
-                tokens = sequence_to_counter(get_tokens_sequence_from_file(file, data[0])[0][1])
+                tokens = sequence_to_counter(get_tokens_sequence_from_file(file, data[0],
+                                                                           subtokenize=True)[0][1])
                 self.assertEqual(tokens, Counter(data[2]))
 
 
