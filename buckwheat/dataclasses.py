@@ -27,6 +27,7 @@ class ObjectData:
     content: str
     lang: str
     identifiers: Union[List[IdentifierData], List[str]]
+    identifiers_type: str  # "verbose" for IdentifierData, "string" for str.
     start_byte: int
     start_line: int
     start_column: int
@@ -44,3 +45,4 @@ class FileData:
     lang: str
     objects: List[ObjectData]
     identifiers: Union[List[IdentifierData], List[str]]
+    identifiers_type: str  # "verbose" for IdentifierData, "string" for str.

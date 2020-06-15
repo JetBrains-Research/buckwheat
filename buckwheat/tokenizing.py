@@ -241,10 +241,14 @@ class TreeSitterParser:
         identifiers = TreeSitterParser.get_identifiers_sequence_from_node(code, node, lang,
                                                                           identifiers_verbose,
                                                                           subtokenize)
+        if identifiers_verbose:
+            identifiers_type = "verbose"
+        else:
+            identifiers_type = "string"
         return ObjectData(object_type=object_type, content=content, lang=lang,
-                          identifiers=identifiers, start_byte=start_byte, start_line=start_line,
-                          start_column=start_column, end_byte=end_byte, end_line=end_line,
-                          end_column=end_column)
+                          identifiers=identifiers, identifiers_type=identifiers_type,
+                          start_byte=start_byte, start_line=start_line, start_column=start_column,
+                          end_byte=end_byte, end_line=end_line, end_column=end_column)
 
     @staticmethod
     def merge_nodes_for_lang(lang: str) -> Set[str]:
@@ -282,6 +286,10 @@ class TreeSitterParser:
         code = bytes(code, "utf-8")
         tree = get_parser(TreeSitterParser.PARSERS[lang]).parse(code)
         root = tree.root_node
+        if identifiers_verbose:
+            identifiers_type = "verbose"
+        else:
+            identifiers_type = "string"
         identifiers = []
         objects = []
         # The tree is traversed once per file
@@ -310,7 +318,8 @@ class TreeSitterParser:
                     objects.append(TreeSitterParser.get_object_from_node("class", code, node,
                                                                          lang, identifiers_verbose,
                                                                          subtokenize))
-        return FileData(path=file, lang=lang, objects=objects, identifiers=identifiers)
+        return FileData(path=file, lang=lang, objects=objects, identifiers=identifiers,
+                        identifiers_type=identifiers_type)
 
 
 class PygmentsParser:
@@ -374,8 +383,13 @@ class PygmentsParser:
         identifiers = PygmentsParser.get_identifiers_sequence_from_code(code, lang,
                                                                         identifiers_verbose,
                                                                         subtokenize)
+        if identifiers_verbose:
+            identifiers_type = "verbose"
+        else:
+            identifiers_type = "string"
         # The "objects" are always empty, because Pygemnts don't support recognizing them.
-        return FileData(path=file, lang=lang, objects=[], identifiers=identifiers)
+        return FileData(path=file, lang=lang, objects=[], identifiers=identifiers,
+                        identifiers_type=identifiers_type)
 
 
 def get_identifiers_sequence_from_code(code: str, lang: str, identifiers_verbose: bool = False,
@@ -446,7 +460,8 @@ def get_data_from_file(file: str, lang: str, gather_objects: bool, gather_identi
     except UnicodeDecodeError:
         logging.warning(f"UnicodeDecodeError in {file}, skipping...")
         # Returning empty file for multiprocessing and further skipping during saving.
-        return FileData(path=file, lang=lang, objects=[], identifiers=[])
+        return FileData(path=file, lang=lang, objects=[], identifiers=[],
+                        identifiers_type="string")
 
 
 def get_functions_from_file(file: str, lang: str, identifiers_verbose: bool = False,
@@ -671,7 +686,6 @@ def tokenize_list_of_repositories(repositories_file: str, output_dir: str, batch
                          f"of {len(repositories_batches)} to file.")
             if len(reps2files.keys()) != 0:  # Skipping possible empty batches.
                 # Saving the batch in the necessary format.
-                OutputFormats(output_format, reps2files, mode, gran,
-                              identifiers_verbose, output_dir, filename)
+                OutputFormats(output_format, reps2files, mode, gran, output_dir, filename)
             logging.info(f"Finished batch {count_batch + 1} out of {len(repositories_batches)}.")
     logging.info("Tokenization successfully completed.")
