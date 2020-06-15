@@ -2,153 +2,195 @@
 Output-related functionality
 """
 from collections import Counter
+import dataclasses
 import json
-import logging
 from operator import itemgetter
 import os
-from typing import Dict, List
+from typing import Dict, List, Union
 
-from .dataclasses import IdentifierData
+from .dataclasses import FileData, IdentifierData
 
 
-def sequence_to_counter(sequence: List[IdentifierData]) -> Counter:
+def merge_bags(files: List[FileData]) -> Counter:
     """
-    Transforms a list of IdentifierData objects into a Counter object of identifiers.
-    :param sequence: a list of IdentifierData objects.
-    :return: a Counter object of the tokens and their counts.
-    """
-    tokens = []
-    for token in sequence:
-        tokens.append(token.identifier)
-    return Counter(tokens)
-
-
-def merge_bags(bag2tokens: Dict[str, List[IdentifierData]]) -> Counter:
-    """
-    Transform the sequences of tokens into counters and merge them for projects.
-    :param bag2tokens: a dictionary with bags' names as keys and IdentifierData objects as values.
+    Transform sequences of identifiers in FileData objects into Counter objects and merge them.
+    :param files: a list of FileData objects.
     :return: a Counter object of tokens and their counts..
     """
     repository_tokens = Counter()
-    for bag_tokens in bag2tokens.values():
-        repository_tokens += sequence_to_counter(bag_tokens)
+    for file in files:
+        repository_tokens += Counter(file.identifiers)
     return repository_tokens
 
 
 class OutputFormats:
     def __init__(self, output_format: str,
-                 reps2bags: Dict[str, Dict[str, List[IdentifierData]]],
-                 mode: str, gran: str, output_dir: str, filename: str):
+                 reps2files: Dict[str, List[FileData]],
+                 mode: str, gran: str, identifiers_verbose: bool, output_dir: str, filename: str):
         if output_format == "wabbit":
-            self.save_wabbit(reps2bags, mode, gran, output_dir, filename)
+            self.save_wabbit(reps2files, mode, gran, identifiers_verbose, output_dir, filename)
         elif output_format == "json":
-            self.save_json(reps2bags, mode, gran, output_dir, filename)
+            self.save_json(reps2files, mode, gran, identifiers_verbose, output_dir, filename)
 
     @classmethod
-    def save_wabbit(cls, reps2bags: Dict[str, Dict[str, List[IdentifierData]]],
-                    mode: str, gran: str, output_dir: str, filename: str) -> None:
+    def save_wabbit(cls, reps2files: Dict[str, List[FileData]], mode: str, gran: str,
+                    identifiers_verbose: bool, output_dir: str, filename: str) -> None:
         """
         Save the bags of tokens in the Vowpal Wabbit format: one bag per line, in the format
         "name token1:parameters token2:parameters...". When run again, overwrites the data.
-        :param reps2bags: a dictionary with repositories names as keys and their bags of tokens as
-                          values. The bags are also dictionaries with bags' names as keys and
-                          sequences of tokens and their parameters as values.
-        :param mode: The mode of parsing. 'counters' returns Counter objects of subtokens and their
-                     count, 'sequences' returns full sequences of subtokens and their parameters:
-                     starting byte, starting line, starting symbol in line, ending symbol in line.
+        :param reps2files: a dictionary with repositories names as keys and the lists of
+                           FileData objects as values.
+        :param mode: the mode of parsing. Either "counters" or "sequences".
         :param gran: granularity of parsing. Values are ["projects", "files", "classes",
                      "functions"].
+        :param identifiers_verbose: if True, will save not only identifiers themselves,
+                                    but also their parameters as IdentifierData.
         :param output_dir: full path to the output directory.
         :param filename: the name of the output file.
         :return: none.
         """
+
         def counter_to_wabbit(tokens_counter: Counter) -> str:
             """
             Transforms a Counter object into a saving format of Wabbit:
             "token1:count1, token2:count2..."
             :param tokens_counter: a Counter object of tokens and their count.
-            :return: string "token1:count1, token2:count2..." sorted alphabetically.
+            :return: string "token1:count1, token2:count2..." sorted by descending count.
             """
-            sorted_tokens = sorted(tokens_counter.items(), key=itemgetter(1))
+            sorted_tokens = sorted(tokens_counter.items(), key=itemgetter(1), reverse=True)
             formatted_tokens = []
             for token in sorted_tokens:
                 formatted_tokens.append("{token}:{count}"
                                         .format(token=token[0], count=str(token[1])))
             return " ".join(formatted_tokens)
 
-        def sequence_to_wabbit(sequence: List[IdentifierData]) -> str:
+        def sequence_to_wabbit(sequence: Union[List[str], List[IdentifierData]],
+                               identifiers_verbose: bool) -> str:
             """
             Transforms a sequence of tokens and their parameters into a saving format of Wabbit:
             "token1:parameters token2:parameters...".
-            :param sequence: a list of tokens and their parameters - starting byte, starting line,
-            starting symbol in line.
+            :param sequence: a list of tokens as either strings or IdentifierData objects.
+            :param identifiers_verbose: if True, will save not only identifiers themselves,
+                                        but also their parameters as IdentifierData.
             :return: string "token1:parameters token2:parameters..." sorted as in original code.
             """
-            formatted_tokens = []
-            for token in sequence:
-                parameters = ",".join([str(parameter) for parameter in
-                                       [token.start_byte, token.start_line, token.start_column]])
-                formatted_tokens.append("{token}:{parameters}".format(token=token.identifier,
-                                                                      parameters=parameters))
-            return " ".join(formatted_tokens)
+            if not identifiers_verbose:
+                return " ".join(sequence)
+            else:
+                formatted_tokens = []
+                for token in sequence:
+                    parameters = ",".join([str(parameter) for parameter in
+                                           [token.start_byte, token.start_line,
+                                            token.start_column]])
+                    formatted_tokens.append("{token}:{parameters}".format(token=token.identifier,
+                                                                          parameters=parameters))
+                return " ".join(formatted_tokens)
 
         with open(os.path.abspath(os.path.join(output_dir, filename)), "w+") as fout:
-            # If the granularity is 'projects', all the bags for each project are merged into one.
-            # Only Counter mode available (sequence is meaningless for the entire project).
             if gran == "projects":
-                for repository_name in reps2bags.keys():
-                    repository_tokens = merge_bags(reps2bags[repository_name])
-                    fout.write("{name} {tokens}\n"
-                               .format(name=repository_name,
-                                       tokens=counter_to_wabbit(repository_tokens)))
-            # If the granularity is 'files' or finer, then each bag is saved individually.
-            else:
-                for repository_name in reps2bags.keys():
-                    for bag_name in reps2bags[repository_name].keys():
-                        if mode == "counters":
-                            tokens = counter_to_wabbit(sequence_to_counter(
-                                               reps2bags[repository_name][bag_name]))
-                        elif mode == "sequences":
-                            tokens = sequence_to_wabbit(reps2bags[repository_name][bag_name])
+                # If the granularity is "projects", all identifiers for each project are merged.
+                for repository_name in reps2files.keys():
+                    repository_tokens = counter_to_wabbit(merge_bags(reps2files[repository_name]))
+                    if len(repository_tokens) != 0:  # Skipping empty repositories.
                         fout.write("{name} {tokens}\n"
-                                   .format(name=bag_name, tokens=tokens))
+                                   .format(name=repository_name,
+                                           tokens=repository_tokens))
+            elif gran == "files":
+                for repository_name in reps2files.values():
+                    for file in repository_name:
+                        if mode == "counters":
+                            file_tokens = counter_to_wabbit(Counter(file.identifiers))
+                        else:
+                            file_tokens = sequence_to_wabbit(file.identifiers, identifiers_verbose)
+                        if file_tokens != 0:  # Skipping empty files.
+                            fout.write("{name} {tokens}\n"
+                                       .format(name=file.path,
+                                               tokens=file_tokens))
+            else:
+                for repository_name in reps2files.values():
+                    for file in repository_name:
+                        for obj in file.objects:
+                            if (gran == "functions" and obj.object_type == "function") or \
+                                    (gran == "classes" and obj.object_type == "class"):
+                                if mode == "counters":
+                                    object_tokens = counter_to_wabbit(Counter(obj.identifiers))
+                                else:
+                                    object_tokens = sequence_to_wabbit(obj.identifiers,
+                                                                       identifiers_verbose)
+                                if object_tokens != 0:  # Skipping empty objects.
+                                    fout.write("{name} {tokens}\n"
+                                               .format(name=f"{file.path}"
+                                                            f"#L{obj.start_line + 1}-"
+                                                            f"L{obj.end_line + 1}",
+                                                       tokens=object_tokens))
 
     @classmethod
-    def save_json(cls, reps2bags: Dict[str, Dict[str, List[IdentifierData]]],
-                  mode: str, gran: str, output_dir: str, filename: str) -> None:
+    def save_json(cls, reps2files: Dict[str, List[FileData]], mode: str, gran: str,
+                  identifiers_verbose: bool, output_dir: str, filename: str) -> None:
         """
         Save the bags of tokens as JSON files
-        :param reps2bags: a dictionary with repositories names as keys and their bags of tokens as
-                          values. The bags are also dictionaries with bags' names as keys and
-                          sequences of tokens and their parameters as values.
-        :param mode: The mode of parsing. 'counters' returns Counter objects of subtokens and their
-                     count, 'sequences' returns full sequences of subtokens and their parameters:
-                     starting byte, starting line, starting symbol in line, ending symbol in line.
+        :param reps2files: a dictionary with repositories names as keys and their bags of tokens as
+                           values. The bags are also dictionaries with bags' names as keys and
+                           sequences of tokens and their parameters as values.
+        :param mode: the mode of parsing. Either "counters" or "sequences".
         :param gran: granularity of parsing. Values are ["projects", "files", "classes",
                      "functions"].
+        :param identifiers_verbose: if True, will save not only identifiers themselves,
+                                    but also their parameters as IdentifierData.
         :param output_dir: full path to the output directory.
         :param filename: the name of the output file.
         :return: none.
         """
+        res = {}
         with open(os.path.abspath(os.path.join(output_dir, filename)), "w+") as fout:
             if gran == "projects":
-                for repository_name in reps2bags.keys():
-                    reps2bags[repository_name] = merge_bags(reps2bags[repository_name])
-                json.dump(reps2bags, fout, ensure_ascii=False, indent=4)
+                for repository_name in reps2files.keys():
+                    repository_tokens = merge_bags(reps2files[repository_name])
+                    if len(repository_tokens) != 0:  # Skipping empty repositories.
+                        res[repository_name] = repository_tokens
+            elif gran == "files":
+                for repository_name in reps2files.keys():
+                    res[repository_name] = {}
+                    for file in reps2files[repository_name]:
+                        if len(file.identifiers) != 0:  # Skipping empty files.
+                            if mode == "counters":
+                                res[repository_name][file.path] = Counter(file.identifiers)
+                            else:
+                                if not identifiers_verbose:
+                                    res[repository_name][file.path] = file.identifiers
+                                else:
+                                    tokens = []
+                                    for identifier in file.identifiers:
+                                        tokens.append(dataclasses.astuple(identifier))
+                                    res[repository_name][file.path] = tokens
             else:
-                logging.debug(f"Preparing the dictionary for JSON file {filename}.")
-                if mode == "counters":
-                    for repository_name in reps2bags.keys():
-                        for bag_name in reps2bags[repository_name].keys():
-                            reps2bags[repository_name][bag_name] = sequence_to_counter(
-                                reps2bags[repository_name][bag_name])
-                elif mode == "sequences":
-                    for repository_name in reps2bags.keys():
-                        for bag_name in reps2bags[repository_name].keys():
-                            for token_index in range(len(reps2bags[repository_name][bag_name])):
-                                token = reps2bags[repository_name][bag_name][token_index]
-                                reps2bags[repository_name][bag_name][token_index] = [
-                                    token.identifier, token.start_byte,
-                                    token.start_line, token.start_column]
-                logging.debug(f"Writing JSON to file {filename}.")
-                json.dump(reps2bags, fout, ensure_ascii=False, indent=4)
+                for repository_name in reps2files.keys():
+                    res[repository_name] = {}
+                    for file in reps2files[repository_name]:
+                        if len(file.objects) != 0:  # Skipping empty objects.
+                            res[repository_name][file.path] = {}
+                            for obj in file.objects:
+                                if len(obj.identifiers) != 0:
+                                    if (gran == "functions" and obj.object_type == "function") or \
+                                            (gran == "classes" and obj.object_type == "class"):
+                                        if mode == "counters":
+                                            res[repository_name][file.path][
+                                                f"{file.path}#L{obj.start_line + 1}-"
+                                                f"L{obj.end_line + 1}"] = Counter(obj.identifiers)
+                                        else:
+                                            if not identifiers_verbose:
+                                                res[repository_name][file.path][
+                                                    f"{file.path}#L{obj.start_line + 1}-"
+                                                    f"L{obj.end_line + 1}"] = obj.identifiers
+                                            else:
+                                                tokens = []
+                                                for identifier in obj.identifiers:
+                                                    tokens.append(dataclasses.astuple(identifier))
+                                                res[repository_name][file.path][
+                                                    f"{file.path}#L{obj.start_line + 1}-"
+                                                    f"L{obj.end_line + 1}"] = tokens
+                            # Delete empty dictionary if no objects of necessary types were
+                            # in the file.
+                            if len(res[repository_name][file.path]) == 0:
+                                del res[repository_name][file.path]
+            json.dump(res, fout, ensure_ascii=False, indent=4)

@@ -18,13 +18,14 @@ The tool currently works on Linux and MacOS, correct versions of files will be d
     
 2. Create an input file with a list of repositories. In the default mode, the list must contain links to GitHub, in the local mode (activated by passing the `--local` argument), the list must contain the paths to local directories.
 3. Run from the command line with `python3 -m buckwheat.run` and the following arguments:
-    - `-i`: a path to the input file;
-    - `-o`: a path to the output directory;
-    - `-b`: the size of the batch of projects that will be saved together (by default 10);
+    - `-i`: a path to the input file.
+    - `-o`: a path to the output directory.
+    - `-b`: the size of the batch of projects that will be saved together (by default 10). This serves to consume less memory, which is necessary for fine granularities and especially of saving the parameters of identifiers (see below).
     - `-p`: The mode of parsing. `counters` (default value) returns Counter objects of subtokens and their count, `sequences` returns full sequences of subtokens and their parameters: starting byte, starting line, starting symbol in line. For the `projects` granularity, only `counters` are available.
     - `-g`: granularity of the tokenization. Possible values: `projects` for gathering bags of identifiers for the entire repositories, `files` for the file level (the default mode), `classes` for the level of classes (for the languages that have classes), `functions` for the level of functions (for the languages that have functions).
     - `-f`: output format. `wabbit` (the default value) for [Vowpal Wabbit](https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Input-format), `json` for JSON.
     - `-l`: if passed with a specific language, then only files in this language are considered. Please note that if run with a granularity that doesn't support this language, it will produce an error.
+    - `-v`: if passed, all the identifiers will be saved with their coordinates (starting byte, starting line, starting column). Doesn't work for the `counters` mode.
     - `-s`: if passed, all the tokens will be split into subtokens by camelCase and snake_case, and also stemmed. For the details of subtokenization, see `subtokenizing.py`.
     - `--local`: if passed, switches the tokenization into the local mode, where the input file must contain the paths to local directories.
 
@@ -32,16 +33,16 @@ The tool currently works on Linux and MacOS, correct versions of files will be d
 After the target project is downloaded, it is processed in three main steps:
 1. **Language recognition**. Firstly, the languages of the project are recognized with [enry](https://github.com/src-d/enry). This operation returns a dictionary with languages as keys and corresponding lists of files as values. Only the files in supported languages are passed on to the next step (see the full list below).
 2. **Parsing**. Every file is parsed with one of the two parsers. The most popular languages are parsed with [tree-sitter](https://tree-sitter.github.io/), and the languages that do not yet have _tree-sitter_ grammar are parsed with [pygments](https://pygments.org/). At this point, identifiers are extracted and every identifier is passed on to the next step. For tree-sitter languages, class-level and function-level parsing is also available.
-3. **Subtokenizing**. Every identifier is split into subtokens by camelCase and snake_case, small subtokens are connected to longer ones, and the subtokens are stemmed. In general, the preprocessing is carried out as described in [this paper](https://arxiv.org/abs/1704.00135).
+3. **Subtokenizing**. Every identifier can be split into subtokens by camelCase and snake_case, small subtokens are connected to longer ones, and the subtokens are stemmed. In general, the preprocessing is carried out as described in [this paper](https://arxiv.org/abs/1704.00135).
 
 The counters of subtokens are aggregated for the given granularity (project, file, class, or function) and saved to file.
-Alternatively, sequences of tokens are saved in order of appearance in the bag (file, class, or function).
+Alternatively, sequences of tokens are saved in order of appearance in the bag (file, class, or function), optionally with coordinates of every identifier.
 
 ## Advanced use
 
 Every step of the pipeline can be modified:
 1. Languages can be added by modifying `SUPPORTED_LANGUAGES` in `parsing.py`.
-2. The tool can extract not only identifiers, but anything that is detected by either _tree-sitter_ or _pygments_. This can be done my modifying the types in `TreeSitterParser` and `PygmentsParser` classes.
+2. The tool can extract not only identifiers, functions, and classes, but anything that is detected by either _tree-sitter_ or _pygments_. This can be done my modifying the types in `TreeSitterParser` and `PygmentsParser` classes.
 3. Subtokenization can be modified in `subtokenizing.py`. The tokens can be connected together, stemmed, filtered by length, etc.
 
 ## Supported languages

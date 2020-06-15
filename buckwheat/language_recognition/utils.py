@@ -6,6 +6,7 @@ import logging
 import os
 import platform
 import subprocess
+from typing import Dict, List
 import urllib.request
 
 DOWNLOAD_URLS = {
@@ -58,7 +59,8 @@ def main() -> None:
     filename = FILENAMES[system]
     if not os.path.exists(os.path.abspath(os.path.join(get_enry_dir(), filename))):
         try:
-            urllib.request.urlretrieve(url, os.path.abspath(os.path.join(get_enry_dir(), filename)))
+            urllib.request.urlretrieve(url, os.path.abspath(os.path.join(get_enry_dir(),
+                                                                         filename)))
         except Exception as e:
             logging.error("Failed to download language recognizer. {type}: {error}."
                           .format(type=type(e).__name__, error=e))
@@ -73,14 +75,29 @@ def main() -> None:
     logging.info("Language recognizer successfully initialized.")
 
 
-def recognize_languages(directory: str) -> dict:
+def recognize_languages_dir(directory: str) -> Dict[str, List[str]]:
     """
-    Recognize the languages in the directory using Enry and return a dictionary
+    Recognize the languages in the directory using Enry and return a dictionary.
     {language1: [files], language2: [files], ...}.
     :param directory: the path to the directory.
     :return: dictionary {language1: [files], language2: [files], ...}
     """
     enry = get_enry()
     args = [enry, "-json", directory]
+    res = subprocess.check_output(args)
+    return json.loads(res)
+
+
+def recognize_language_file(file_path: str) -> Dict[str, str]:
+    """
+    Recognize the language of a file.
+    :param file_path: directory location to classify.
+    :return: dictionary `{"filename":name,"language":lang,"lines":n_lines,"mime":mime,"total_lines":n_total_lines,
+                         "type":type,"vendored":bool}`
+    """
+    if not os.path.isfile(file_path):
+        raise ValueError("Expected path to file path but got '%s'" % file_path)
+    enry = get_enry()
+    args = [enry, "-json", file_path]
     res = subprocess.check_output(args)
     return json.loads(res)

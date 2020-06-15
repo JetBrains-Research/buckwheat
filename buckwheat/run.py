@@ -20,9 +20,11 @@ def main(args: argparse.Namespace) -> None:
     initialize_enry()
     initialize_parser()
     tokenize_list_of_repositories(repositories_file=args.input, output_dir=args.output,
-                                  batch_size=int(args.batches), mode = args.parsing,
+                                  batch_size=int(args.batches), mode=args.parsing,
                                   gran=args.granularity, language=args.language, local=args.local,
-                                  output_format=args.format, subtokenize=args.subtokenize)
+                                  output_format=args.format,
+                                  identifiers_verbose=args.identifiers_verbose,
+                                  subtokenize=args.subtokenize)
 
 
 if __name__ == "__main__":
@@ -55,6 +57,10 @@ if __name__ == "__main__":
     parser.add_argument("-f", "--format", choices=["wabbit", "json"], default="wabbit",
                         help="The output format for saving. 'wabbit' for Vowpal Wabbit, "
                              "'json' for JSON.")
+    parser.add_argument("-v", "--identifiers_verbose", action="store_true",
+                        help="If passed, all the identifiers will be saved with their coordinates "
+                             "(starting byte, starting line, starting column). Doesn't work for "
+                             "the 'counters' mode.")
     parser.add_argument("-s", "--subtokenize", action="store_true",
                         help="If passed, all the tokens will be split into subtokens by "
                              "camelCase and snake_case, and also stemmed. For the details of "
