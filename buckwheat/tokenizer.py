@@ -132,13 +132,11 @@ class TreeSitterParser:
         :param types: the set of types of interest.
         :return: the iterator of Tree-sitter nodes of necessary types.
         """
-        nodes = []
         for child in node.children:
             if child.type in types:
                 yield child
             if len(child.children) != 0:
                 yield from TreeSitterParser.traverse_tree(child, types)
-        return nodes
 
     @staticmethod
     def get_identifier_from_node(code: bytes, node: tree_sitter.Node,
@@ -376,7 +374,7 @@ class PygmentsParser:
             identifiers_type = IDENTIFIERS_TYPES.VERBOSE
         else:
             identifiers_type = IDENTIFIERS_TYPES.STRING
-        # The "objects" are always empty, because Pygemnts don't support recognizing them.
+        # The "objects" are always empty, because Pygments don't support recognizing them.
         return FileData(path=file, lang=lang, objects=[], identifiers=identifiers,
                         identifiers_type=identifiers_type)
 
