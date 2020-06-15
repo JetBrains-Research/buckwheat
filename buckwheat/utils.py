@@ -1,9 +1,82 @@
 """
 Auxiliary functionality.
 """
+import dataclasses
+from enum import Enum
 import os
 import subprocess
-from typing import Any, List
+from typing import Any, Dict, List, Optional, Tuple, Union
+
+
+# Languages supported in various modes
+SUPPORTED_LANGUAGES = {"tree-sitter": {"JavaScript", "Python", "Java", "Go", "C++", "Ruby",
+                                       "TypeScript", "TSX", "PHP", "C#", "C", "Shell", "Rust"},
+                       "pygments": {"Scala", "Swift", "Kotlin", "Haskell"},
+                       "classes": {"JavaScript", "Python", "Java", "C++", "Ruby", "TypeScript",
+                                   "TSX", "PHP", "C#"},
+                       "functions": {"JavaScript", "Python", "Java", "Go", "C++", "Ruby",
+                                     "TypeScript", "TSX", "PHP", "C#", "C", "Shell", "Rust"}}
+
+# Supported parsing modes
+PARSING_MODES = {"sequences", "counters"}
+
+# Supported granularities of parsing
+GRANULARITIES = {"projects", "files", "classes", "functions"}
+
+# Supported output formats
+OUTPUT_FORMATS = {"wabbit", "json"}
+
+
+class OBJECT_TYPES(Enum):
+    CLASS = "class"
+    FUNCTION = "function"
+
+
+class IDENTIFIERS_TYPES(Enum):
+    STRING = "string"
+    VERBOSE = "verbose"
+
+
+@dataclasses.dataclass
+class IdentifierData:
+    """
+    Data class to store individual identifiers and their positional coordinates.
+    """
+    identifier: str
+    start_byte: int
+    start_line: int
+    start_column: int
+
+
+@dataclasses.dataclass
+class ObjectData:
+    """
+    Data class to store objects (classes and functions) and their parameters: positional
+    coordinates, language and identifiers.
+    """
+    object_type: OBJECT_TYPES
+    content: str
+    lang: str
+    identifiers: Union[List[IdentifierData], List[str]]
+    identifiers_type: IDENTIFIERS_TYPES  # VERBOSE for IdentifierData, STRING for str.
+    start_byte: int
+    start_line: int
+    start_column: int
+    end_byte: int
+    end_line: int
+    end_column: int
+
+
+@dataclasses.dataclass
+class FileData:
+    """
+    Dataclass to store files and their content.
+    """
+    path: str
+    lang: str
+    objects: List[ObjectData]
+    identifiers: Union[List[IdentifierData], List[str]]
+    identifiers_type: IDENTIFIERS_TYPES  # VERBOSE for IdentifierData, STRING for str.
 
 
 class RepositoryError(ValueError):
@@ -82,3 +155,42 @@ def get_full_path(file: str, directory: str) -> str:
     :return: the full path to file.
     """
     return os.path.abspath(os.path.join(directory, file))
+
+
+def transform_files_list(lang2files: Dict[str, List[str]], gran: str,
+                         languages: Optional[List[str]]) -> List[Tuple[str, str]]:
+    """
+    Transform the output of Enry on a directory into a list of tuples (full_path_to_file, lang)
+    for supported languages only. Supported languages depend on the granularity and whether one
+    specific language was specified.
+    :param lang2files: the dictionary output of Enry: {language: [files], ...}.
+    :param gran: granularity of parsing. Values are ["projects", "files", "classes", "functions"].
+    :param languages: the languages of parsing. None for all the languages available for a
+                      given parsing granularity, specific languages for themselves.
+    :return: a list of tuples (full_path_to_file, lang) for the necessary languages.
+    """
+    # Get the languages available for a given granularity.
+    if gran in ["projects", "files"]:  # Projects and files are supported for all languages.
+        res_langs = SUPPORTED_LANGUAGES["tree-sitter"] | SUPPORTED_LANGUAGES["pygments"]
+    elif gran == "classes":
+        res_langs = SUPPORTED_LANGUAGES["classes"]
+    elif gran == "functions":
+        res_langs = SUPPORTED_LANGUAGES["functions"]
+    else:
+        raise ValueError("Incorrect granularity of parsing.")
+    # If specific languages were specified, override the results
+    # and check their availability for a given granularity.
+    if languages is not None:
+        for language in languages:
+            if language not in SUPPORTED_LANGUAGES["tree-sitter"] | \
+                    SUPPORTED_LANGUAGES["pygments"]:
+                raise ValueError(f"{language} is an unsupported language!")
+            if language not in res_langs:
+                raise ValueError(f"{language} doesn't support {gran} granularity.")
+        res_langs = set(languages)
+    files = []
+    for lang in lang2files.keys():
+        if lang in res_langs:
+            for file in lang2files[lang]:
+                files.append((file, lang))
+    return files

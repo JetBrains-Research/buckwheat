@@ -5,7 +5,7 @@ from collections import Counter
 import os
 import unittest
 
-from ..tokenizing import get_identifiers_sequence_from_file
+from ..tokenizer import get_identifiers_sequence_from_file
 
 tests_dir = os.path.abspath(os.path.dirname(__file__))
 

@@ -2,4 +2,3 @@
 !buckwheat/parsing/build/.gitkeep
 /buckwheat/language_recognition/build/*
 !buckwheat/language_recognition/build/.gitkeep
-/buckwheat/tests/test_results/

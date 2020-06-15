@@ -8,7 +8,7 @@ from operator import itemgetter
 import os
 from typing import Dict, List, Union
 
-from .dataclasses import FileData, IdentifierData
+from .utils import IDENTIFIERS_TYPES, OBJECT_TYPES, FileData, IdentifierData
 
 
 def merge_bags(files: List[FileData]) -> Counter:
@@ -63,17 +63,17 @@ class OutputFormats:
             return " ".join(formatted_tokens)
 
         def sequence_to_wabbit(sequence: Union[List[str], List[IdentifierData]],
-                               type: str) -> str:
+                               identifiers_type: IDENTIFIERS_TYPES) -> str:
             """
             Transforms a sequence of tokens and their parameters into a saving format of Wabbit:
             "token1:parameters token2:parameters...".
             :param sequence: a list of tokens as either strings or IdentifierData objects.
-            :param type: type of the sequence: "string" for string, "verbose" for IdentifierData.
+            :param identifiers_type: type of the sequence.
             :return: string "token1:parameters token2:parameters..." sorted as in original code.
             """
-            if type == "string":
+            if identifiers_type == IDENTIFIERS_TYPES.STRING:
                 return " ".join(sequence)
-            elif type == "verbose":
+            elif identifiers_type == IDENTIFIERS_TYPES.VERBOSE:
                 formatted_tokens = []
                 for token in sequence:
                     parameters = ",".join([str(parameter) for parameter in
@@ -108,8 +108,9 @@ class OutputFormats:
                 for repository_name in reps2files.values():
                     for file in repository_name:
                         for obj in file.objects:
-                            if (gran == "functions" and obj.object_type == "function") or \
-                                    (gran == "classes" and obj.object_type == "class"):
+                            if (gran == "functions" and
+                                obj.object_type == OBJECT_TYPES.FUNCTION) or \
+                                    (gran == "classes" and obj.object_type == OBJECT_TYPES.CLASS):
                                 if mode == "counters":
                                     object_tokens = counter_to_wabbit(Counter(obj.identifiers))
                                 else:
@@ -152,9 +153,9 @@ class OutputFormats:
                             if mode == "counters":
                                 res[repository_name][file.path] = Counter(file.identifiers)
                             else:
-                                if file.identifiers_type == "string":
+                                if file.identifiers_type == IDENTIFIERS_TYPES.STRING:
                                     res[repository_name][file.path] = file.identifiers
-                                elif file.identifiers_type == "verbose":
+                                elif file.identifiers_type == IDENTIFIERS_TYPES.VERBOSE:
                                     tokens = []
                                     for identifier in file.identifiers:
                                         tokens.append(dataclasses.astuple(identifier))
@@ -163,30 +164,25 @@ class OutputFormats:
                 for repository_name in reps2files.keys():
                     res[repository_name] = {}
                     for file in reps2files[repository_name]:
-                        if len(file.objects) != 0:  # Skipping empty objects.
-                            res[repository_name][file.path] = {}
-                            for obj in file.objects:
-                                if len(obj.identifiers) != 0:
-                                    if (gran == "functions" and obj.object_type == "function") or \
-                                            (gran == "classes" and obj.object_type == "class"):
-                                        if mode == "counters":
-                                            res[repository_name][file.path][
+                        for obj in file.objects:
+                            if len(obj.identifiers) != 0:  # Skipping empty objects.
+                                if (gran == "functions" and obj.object_type == OBJECT_TYPES
+                                        .FUNCTION) or (gran == "classes" and
+                                                       obj.object_type == OBJECT_TYPES.CLASS):
+                                    if mode == "counters":
+                                        res[repository_name][
+                                            f"{file.path}#L{obj.start_line + 1}-"
+                                            f"L{obj.end_line + 1}"] = Counter(obj.identifiers)
+                                    else:
+                                        if obj.identifiers_type == IDENTIFIERS_TYPES.STRING:
+                                            res[repository_name][
                                                 f"{file.path}#L{obj.start_line + 1}-"
-                                                f"L{obj.end_line + 1}"] = Counter(obj.identifiers)
-                                        else:
-                                            if obj.identifiers_type == "string":
-                                                res[repository_name][file.path][
-                                                    f"{file.path}#L{obj.start_line + 1}-"
-                                                    f"L{obj.end_line + 1}"] = obj.identifiers
-                                            elif obj.identifiers_type == "verbose":
-                                                tokens = []
-                                                for identifier in obj.identifiers:
-                                                    tokens.append(dataclasses.astuple(identifier))
-                                                res[repository_name][file.path][
-                                                    f"{file.path}#L{obj.start_line + 1}-"
-                                                    f"L{obj.end_line + 1}"] = tokens
-                            # Delete empty dictionary if no objects of necessary types were
-                            # in the file.
-                            if len(res[repository_name][file.path]) == 0:
-                                del res[repository_name][file.path]
+                                                f"L{obj.end_line + 1}"] = obj.identifiers
+                                        elif obj.identifiers_type == IDENTIFIERS_TYPES.VERBOSE:
+                                            tokens = []
+                                            for identifier in obj.identifiers:
+                                                tokens.append(dataclasses.astuple(identifier))
+                                            res[repository_name][
+                                                f"{file.path}#L{obj.start_line + 1}-"
+                                                f"L{obj.end_line + 1}"] = tokens
             json.dump(res, fout, ensure_ascii=False, indent=4)

@@ -4,7 +4,7 @@ Tokenization-related functionality.
 import logging
 import os
 from tempfile import TemporaryDirectory
-from typing import Dict, Iterator, List, Set, Tuple, Union
+from typing import Iterator, List, Optional, Set, Tuple, Union
 
 from joblib import cpu_count, delayed, Parallel
 from pygments.lexers.haskell import HaskellLexer
@@ -13,26 +13,20 @@ from pygments.lexers.objective import SwiftLexer
 import pygments
 import tree_sitter
 
-from .dataclasses import FileData, IdentifierData, ObjectData
 from .language_recognition.utils import recognize_languages_dir
 from .parsing.utils import get_parser
-from .saving import OutputFormats
-from .subtokenizing import TokenParser
-from .utils import assert_trailing_slash, clone_repository, get_full_path, \
-    get_latest_commit, read_file, split_list_into_batches, RepositoryError
+from .saver import OutputFormats
+from .subtokenizer import TokenParser
+from .utils import SUPPORTED_LANGUAGES, PARSING_MODES, GRANULARITIES, OUTPUT_FORMATS, \
+    IDENTIFIERS_TYPES, OBJECT_TYPES, FileData, IdentifierData, ObjectData, RepositoryError,\
+    assert_trailing_slash, clone_repository, get_full_path, get_latest_commit, read_file,\
+    split_list_into_batches, transform_files_list
 
+# One instance for further subtokenizing
 Subtokenizer = TokenParser()
 
+# Number of threads for multi-processing
 PROCESSES = cpu_count()
-
-# Languages supported in various modes
-SUPPORTED_LANGUAGES = {"tree-sitter": {"JavaScript", "Python", "Java", "Go", "C++", "Ruby",
-                                       "TypeScript", "TSX", "PHP", "C#", "C", "Shell", "Rust"},
-                       "pygments": {"Scala", "Swift", "Kotlin", "Haskell"},
-                       "classes": {"JavaScript", "Python", "Java", "C++", "Ruby", "TypeScript",
-                                   "TSX", "PHP", "C#"},
-                       "functions": {"JavaScript", "Python", "Java", "Go", "C++", "Ruby",
-                                     "TypeScript", "TSX", "PHP", "C#", "C", "Shell", "Rust"}}
 
 
 def subtokenize_identifier(token: Union[str, IdentifierData]) -> \
@@ -49,6 +43,8 @@ def subtokenize_identifier(token: Union[str, IdentifierData]) -> \
                                     start_line=token.start_line,
                                     start_column=token.start_column)
                      for subtoken in list(Subtokenizer.process_token(token.identifier))]
+    else:
+        raise TypeError("Unknown format of token!")
     return subtokens
 
 
@@ -207,10 +203,6 @@ class TreeSitterParser:
         :param subtokenize: if True, will split the tokens into subtokens.
         :return: list of identifiers as either strings or IdentifierData objects.
         """
-        try:
-            assert lang in SUPPORTED_LANGUAGES["tree-sitter"]
-        except AssertionError:
-            raise ValueError("Unsupported language!")
         code = bytes(code, "utf-8")
         tree = get_parser(TreeSitterParser.PARSERS[lang]).parse(code)
         root = tree.root_node
@@ -219,13 +211,13 @@ class TreeSitterParser:
                                                                    subtokenize)
 
     @staticmethod
-    def get_object_from_node(object_type: str, code: bytes, node: tree_sitter.Node, lang: str,
-                             identifiers_verbose: bool = False,
+    def get_object_from_node(object_type: OBJECT_TYPES, code: bytes, node: tree_sitter.Node,
+                             lang: str, identifiers_verbose: bool = False,
                              subtokenize: bool = False) -> ObjectData:
         """
         Given a node of the AST, its type, and the code from which this AST was built,
         compile an ObjectData object.
-        :param object_type: the type of the object, either "class" or "function".
+        :param object_type: the type of the object.
         :param code: the original code in bytes.
         :param node: the node of the tree-sitter AST.
         :param lang: the language of code.
@@ -242,9 +234,9 @@ class TreeSitterParser:
                                                                           identifiers_verbose,
                                                                           subtokenize)
         if identifiers_verbose:
-            identifiers_type = "verbose"
+            identifiers_type = IDENTIFIERS_TYPES.VERBOSE
         else:
-            identifiers_type = "string"
+            identifiers_type = IDENTIFIERS_TYPES.STRING
         return ObjectData(object_type=object_type, content=content, lang=lang,
                           identifiers=identifiers, identifiers_type=identifiers_type,
                           start_byte=start_byte, start_line=start_line, start_column=start_column,
@@ -287,9 +279,9 @@ class TreeSitterParser:
         tree = get_parser(TreeSitterParser.PARSERS[lang]).parse(code)
         root = tree.root_node
         if identifiers_verbose:
-            identifiers_type = "verbose"
+            identifiers_type = IDENTIFIERS_TYPES.VERBOSE
         else:
-            identifiers_type = "string"
+            identifiers_type = IDENTIFIERS_TYPES.STRING
         identifiers = []
         objects = []
         # The tree is traversed once per file
@@ -309,14 +301,16 @@ class TreeSitterParser:
             # Gathering ObjectData for functions
             elif node.type in TreeSitterParser.FUNCTIONS[lang]:
                 if gather_objects:
-                    objects.append(TreeSitterParser.get_object_from_node("function", code, node,
-                                                                         lang, identifiers_verbose,
+                    objects.append(TreeSitterParser.get_object_from_node(OBJECT_TYPES.FUNCTION,
+                                                                         code, node, lang,
+                                                                         identifiers_verbose,
                                                                          subtokenize))
             # Gathering ObjectData for classes
             elif node.type in TreeSitterParser.CLASSES[lang]:
                 if gather_objects:
-                    objects.append(TreeSitterParser.get_object_from_node("class", code, node,
-                                                                         lang, identifiers_verbose,
+                    objects.append(TreeSitterParser.get_object_from_node(OBJECT_TYPES.CLASS, code,
+                                                                         node, lang,
+                                                                         identifiers_verbose,
                                                                          subtokenize))
         return FileData(path=file, lang=lang, objects=objects, identifiers=identifiers,
                         identifiers_type=identifiers_type)
@@ -347,10 +341,6 @@ class PygmentsParser:
         :param subtokenize: if True, will split the tokens into subtokens.
         :return: list of identifiers as either strings or IdentifierData objects.
         """
-        try:
-            assert lang in SUPPORTED_LANGUAGES["pygments"]
-        except AssertionError:
-            raise ValueError("Unsupported language!")
         tokens = []
         for pair in pygments.lex(code, PygmentsParser.LEXERS[lang]):
             if any(pair[0] in sublist for sublist in PygmentsParser.IDENTIFIERS[lang]):
@@ -384,9 +374,9 @@ class PygmentsParser:
                                                                         identifiers_verbose,
                                                                         subtokenize)
         if identifiers_verbose:
-            identifiers_type = "verbose"
+            identifiers_type = IDENTIFIERS_TYPES.VERBOSE
         else:
-            identifiers_type = "string"
+            identifiers_type = IDENTIFIERS_TYPES.STRING
         # The "objects" are always empty, because Pygemnts don't support recognizing them.
         return FileData(path=file, lang=lang, objects=[], identifiers=identifiers,
                         identifiers_type=identifiers_type)
@@ -461,7 +451,7 @@ def get_data_from_file(file: str, lang: str, gather_objects: bool, gather_identi
         logging.warning(f"UnicodeDecodeError in {file}, skipping...")
         # Returning empty file for multiprocessing and further skipping during saving.
         return FileData(path=file, lang=lang, objects=[], identifiers=[],
-                        identifiers_type="string")
+                        identifiers_type=IDENTIFIERS_TYPES.STRING)
 
 
 def get_functions_from_file(file: str, lang: str, identifiers_verbose: bool = False,
@@ -475,16 +465,14 @@ def get_functions_from_file(file: str, lang: str, identifiers_verbose: bool = Fa
     :param subtokenize: if True, will split the tokens into subtokens.
     :return: an iterator of ObjectData objects for functions.
     """
-    try:
-        assert lang in SUPPORTED_LANGUAGES["functions"]
-    except AssertionError:
+    if lang not in SUPPORTED_LANGUAGES["functions"]:
         raise ValueError(f"{lang} doesn't support gathering functions!")
     file_data = TreeSitterParser.get_data_from_file(file, lang, gather_objects=True,
                                                     gather_identifiers=False,
                                                     identifiers_verbose=identifiers_verbose,
                                                     subtokenize=subtokenize)
     for obj in file_data.objects:
-        if obj.object_type == "function":
+        if obj.object_type == OBJECT_TYPES.FUNCTION:
             yield obj
 
 
@@ -499,61 +487,20 @@ def get_classes_from_file(file: str, lang: str, identifiers_verbose: bool = Fals
     :param subtokenize: if True, will split the tokens into subtokens.
     :return: an iterator of ObjectData objects for classes.
     """
-    try:
-        assert lang in SUPPORTED_LANGUAGES["classes"]
-    except AssertionError:
+    if lang not in SUPPORTED_LANGUAGES["classes"]:
         raise ValueError(f"{lang} doesn't support gathering functions!")
     file_data = TreeSitterParser.get_data_from_file(file, lang, gather_objects=True,
                                                     gather_identifiers=False,
                                                     identifiers_verbose=identifiers_verbose,
                                                     subtokenize=subtokenize)
     for obj in file_data.objects:
-        if obj.object_type == "class":
+        if obj.object_type == OBJECT_TYPES.CLASS:
             yield obj
 
 
-def transform_files_list(lang2files: Dict[str, List[str]], gran: str,
-                         language: str) -> List[Tuple[str, str]]:
-    """
-    Transform the output of Enry on a directory into a list of tuples (full_path_to_file, lang)
-    for supported languages only. Supported languages depend on the granularity and whether one
-    specific language was specified.
-    :param lang2files: the dictionary output of Enry: {language: [files], ...}.
-    :param gran: granularity of parsing. Values are ["projects", "files", "classes", "functions"].
-    :param language: the language of parsing. "all" stands for all the languages available for a
-                     given parsing granularity, specific languages refer to themselves.
-    :return: a list of tuples (full_path_to_file, lang) for the necessary languages.
-    """
-    # Get the languages available for a given granularity.
-    if gran in ["projects", "files"]:  # Projects and files are supported for all languages.
-        langs = SUPPORTED_LANGUAGES["tree-sitter"] | SUPPORTED_LANGUAGES["pygments"]
-    elif gran == "classes":
-        langs = SUPPORTED_LANGUAGES["classes"]
-    elif gran == "functions":
-        langs = SUPPORTED_LANGUAGES["functions"]
-    else:
-        raise ValueError("Incorrect granularity of parsing.")
-    # If a specific language was specified, override it
-    # and check its availability for a given granularity.
-    if language != "all":
-        try:
-            assert language in SUPPORTED_LANGUAGES["tree-sitter"] | SUPPORTED_LANGUAGES["pygments"]
-        except AssertionError:
-            raise ValueError("Unsupported language!")
-        if language in langs:
-            langs = [language]
-        else:
-            raise ValueError(f"{language} doesn't support {gran} granularity.")
-    files = []
-    for lang in lang2files.keys():
-        if lang in langs:
-            for file in lang2files[lang]:
-                files.append((file, lang))
-    return files
-
-
-def tokenize_repository(repository: str, local: bool, mode: str, gran: str, language: str,
-                        pool: Parallel, identifiers_verbose: bool = False,
+def tokenize_repository(repository: str, local: bool, mode: str, gran: str,
+                        languages: Optional[List[str]], pool: Parallel,
+                        identifiers_verbose: bool = False,
                         subtokenize: bool = False) -> Tuple[str, List[FileData]]:
     """
     Tokenize a given repository. Return its correct full name and a list of FileData objects.
@@ -563,8 +510,8 @@ def tokenize_repository(repository: str, local: bool, mode: str, gran: str, lang
                   False if tokenizing in default mode (repository is a GitHub link).
     :param mode: the mode of parsing. Either "counters" or "sequences".
     :param gran: granularity of parsing. Values are ["projects", "files", "classes", "functions"].
-    :param language: the language of parsing. "all" stands for all the languages available for a
-                     given parsing granularity, specific languages refer to themselves.
+    :param languages: the languages of parsing. None for all the languages available for a
+                      given parsing granularity, specific languages for themselves.
     :param pool: the Parallel class instance for multiprocessing.
     :param identifiers_verbose: if True, will save not only identifiers themselves,
                                 but also their parameters as IdentifierData.
@@ -576,9 +523,7 @@ def tokenize_repository(repository: str, local: bool, mode: str, gran: str, lang
         # Determine the correct working directory and its name
         if local:
             directory = repository  # Working directly with a path in the local mode
-            try:
-                assert os.path.isdir(directory)
-            except AssertionError:
+            if not os.path.isdir(directory):
                 raise RepositoryError(f"{directory} doesn't exist!")
             repository_name = directory
         else:
@@ -593,7 +538,7 @@ def tokenize_repository(repository: str, local: bool, mode: str, gran: str, lang
             repository_name = f"{repository}tree/{commit}/"
         logging.debug(f"Recognizing languages is {repository}.")
         lang2files = recognize_languages_dir(directory)  # Recognize the languages in the directory
-        files = transform_files_list(lang2files, gran, language)
+        files = transform_files_list(lang2files, gran, languages)
         logging.debug(f"Parsing files in {repository}.")
         # Parsing for files and projects does not require gathering ObjectData objects.
         if gran in ["projects", "files"]:
@@ -604,7 +549,8 @@ def tokenize_repository(repository: str, local: bool, mode: str, gran: str, lang
             gather_objects = True
             gather_identifiers = False
         # Full parameters of identifiers can't be saved for counters.
-        if mode == "counters":
+        if (mode == "counters") and (identifiers_verbose is True):
+            logging.warning("Full parameters of identifiers can't be saved in 'counters' mode!")
             identifiers_verbose = False
         chunk_results = pool([delayed(get_data_from_file)
                               (get_full_path(file[0], directory), file[1], gather_objects,
@@ -621,8 +567,9 @@ def tokenize_repository(repository: str, local: bool, mode: str, gran: str, lang
 
 
 def tokenize_list_of_repositories(repositories_file: str, output_dir: str, batch_size: int,
-                                  mode: str, gran: str, language: str, local: bool,
-                                  output_format: str, identifiers_verbose: bool = False,
+                                  mode: str, gran: str, languages: Optional[List[str]],
+                                  local: bool, output_format: str,
+                                  identifiers_verbose: bool = False,
                                   subtokenize: bool = False) -> None:
     """
     Given the list of links to repositories, tokenize all the repositories in the list,
@@ -632,8 +579,8 @@ def tokenize_list_of_repositories(repositories_file: str, output_dir: str, batch
     :param batch_size: the number of repositories to be grouped into a single batch / file.
     :param gran: granularity of parsing. Values are ["projects", "files", "classes", "functions"].
     :param mode: the mode of parsing. Either "counters" or "sequences".
-    :param language: the language of parsing. "all" stands for all the languages available for a
-                     given parsing granularity, specific languages refer to themselves.
+    :param languages: the languages of parsing. None for all the languages available for a
+                      given parsing granularity, specific languages for themselves.
     :param local: True if tokenizing in local mode (the input file contains paths to directories),
                   False if tokenizing in default mode (the input file contains GitHub links).
     :param output_format: the output format. Possible values: ["wabbit", "json"].
@@ -642,27 +589,22 @@ def tokenize_list_of_repositories(repositories_file: str, output_dir: str, batch
     :param subtokenize: if True, will split the tokens into subtokens.
     :return: None.
     """
-    try:
-        assert gran in {"projects", "files", "classes", "functions"}
-    except AssertionError:
+    if gran not in GRANULARITIES:
         raise ValueError("Incorrect granularity of parsing.")
-    try:
-        assert output_format in {"wabbit", "json"}
-    except AssertionError:
+    if mode not in PARSING_MODES:
+        raise ValueError("Incorrect parsing mode.")
+    if output_format not in OUTPUT_FORMATS:
         raise ValueError("Incorrect output format.")
     logging.info(f"Tokenizing the repositories in {mode} mode, with {gran} granularity, "
-                 f"saving into {output_format} format. Languages: {language}, "
+                 f"saving into {output_format} format. Specific languages: {languages}, "
                  f"subtokenizing: {subtokenize}, "
                  f"parameters of identifiers: {identifiers_verbose}.")
     # Reading the input file and splitting repositories into batches.
-    assert os.path.exists(repositories_file)
     with open(repositories_file) as fin:
         repositories_list = fin.read().splitlines()
         repositories_batches = split_list_into_batches(repositories_list, batch_size)
-    # Creating the output directory
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
-    # Processing the repositories
     with Parallel(PROCESSES) as pool:
         # Iterating over batches
         for count_batch, batch in enumerate(repositories_batches):
@@ -675,7 +617,7 @@ def tokenize_list_of_repositories(repositories_file: str, output_dir: str, batch
                              f"out of {len(batch)} in batch {count_batch + 1}).")
                 try:
                     repository_name, files = tokenize_repository(repository, local, mode,
-                                                                 gran, language, pool,
+                                                                 gran, languages, pool,
                                                                  identifiers_verbose,
                                                                  subtokenize)
                 except RepositoryError:

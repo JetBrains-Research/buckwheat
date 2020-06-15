@@ -2,9 +2,10 @@
 Pipeline-related tests.
 """
 import os
+from tempfile import TemporaryDirectory
 import unittest
 
-from ..tokenizing import recognize_languages_dir, tokenize_list_of_repositories, transform_files_list
+from ..tokenizer import recognize_languages_dir, tokenize_list_of_repositories, transform_files_list
 
 tests_dir = os.path.abspath(os.path.dirname(__file__))
 
@@ -20,18 +21,16 @@ class TestPipeline(unittest.TestCase):
 
     def test_transforming_list(self):
         lang2files = recognize_languages_dir(os.path.abspath(os.path.join(tests_dir, "test_files")))
-        files = transform_files_list(lang2files, "projects", "all")
+        files = transform_files_list(lang2files, "projects", None)
         self.assertEqual(len(files), 16)
 
     def test_tokenization(self):
-        tokenize_list_of_repositories(os.path.abspath(os.path.join(
-            tests_dir, "test_files", "test.txt")), os.path.abspath(
-            os.path.join(tests_dir, "test_results")),
-            100, "counters", "files", "all", True, "wabbit", identifiers_verbose=False,
-            subtokenize=True)
-        with open(os.path.abspath(os.path.join(tests_dir, "test_results",
-                                               "wabbit_counters_files_0.txt"))) as fin:
-            wabbit_lines = sum(1 for _ in fin)
+        with TemporaryDirectory() as td:
+            tokenize_list_of_repositories(os.path.abspath(os.path.join(
+                tests_dir, "test_files", "test.txt")), td, 100, "counters", "files", None, True,
+                "wabbit", identifiers_verbose=False, subtokenize=True)
+            with open(os.path.abspath(os.path.join(td, "wabbit_counters_files_0.txt"))) as fin:
+                wabbit_lines = sum(1 for _ in fin)
         self.assertEqual(wabbit_lines, 16)
 
 
