@@ -32,13 +32,15 @@ PROCESSES = cpu_count()
 def subtokenize_identifier(token: Union[str, IdentifierData]) -> \
         Union[List[str], List[IdentifierData]]:
     """
-    Splits the identifier into subtokens..
+    Splits the identifier into subtokens.
     :param token: either a string of identifier or an IdentifierData object.
     :return: a list of the corresponding objects for each subtoken.
     """
     if isinstance(token, str):
         subtokens = [subtoken for subtoken in list(Subtokenizer.process_token(token))]
     elif isinstance(token, IdentifierData):
+        # Currently, each subtoken returns the coordinates of the original token.
+        # TODO: fix the subtokenization to account for the change of coordinates.
         subtokens = [IdentifierData(identifier=subtoken, start_byte=token.start_byte,
                                     start_line=token.start_line,
                                     start_column=token.start_column)
@@ -182,7 +184,6 @@ class TreeSitterParser:
         for token_node in token_nodes:
             token = TreeSitterParser.get_identifier_from_node(code, token_node,
                                                               identifiers_verbose)
-            # TODO: fix the subtokenization to account for the change of coordinates.
             if not subtokenize:
                 tokens_sequence.append(token)
             else:
@@ -345,8 +346,6 @@ class PygmentsParser:
         for pair in pygments.lex(code, PygmentsParser.LEXERS[lang]):
             if any(pair[0] in sublist for sublist in PygmentsParser.IDENTIFIERS[lang]):
                 # TODO: implement indexes for tokens, it's possible in pygments. (0, 0, 0) for now.
-                # Currently, each subtoken returns the coordinates of the original token.
-                # TODO: fix the subtokenization to account for the change of coordinates.
                 if not identifiers_verbose:
                     token = pair[1]
                 else:
