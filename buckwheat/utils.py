@@ -7,8 +7,10 @@ import os
 import subprocess
 from typing import Any, Dict, List, Optional, Tuple, Union
 
+# TODO: better naming
 
-# Languages supported in various modes
+# Languages supported in various
+# TODO: language names' normalization (c_sharp, C#, csharp -> C#), maybe within Enry?
 SUPPORTED_LANGUAGES = {"tree-sitter": {"JavaScript", "Python", "Java", "Go", "C++", "Ruby",
                                        "TypeScript", "TSX", "PHP", "C#", "C", "Shell", "Rust"},
                        "pygments": {"Scala", "Swift", "Kotlin", "Haskell"},
@@ -27,16 +29,21 @@ GRANULARITIES = {"projects", "files", "classes", "functions"}
 OUTPUT_FORMATS = {"wabbit", "json"}
 
 
-class OBJECT_TYPES(Enum):
+class ObjectTypes(Enum):
     CLASS = "class"
     FUNCTION = "function"
 
 
-class IDENTIFIERS_TYPES(Enum):
+class IdentifiersTypes(Enum):
+    """
+    string = identifier itself
+    verbose = IdentifierData class
+    """
     STRING = "string"
     VERBOSE = "verbose"
 
 
+# TODO: consider the differences between str and byte from the standpoint of coordinates
 @dataclasses.dataclass
 class IdentifierData:
     """
@@ -54,11 +61,11 @@ class ObjectData:
     Data class to store objects (classes and functions) and their parameters: positional
     coordinates, language and identifiers.
     """
-    object_type: OBJECT_TYPES
+    object_type: ObjectTypes
     content: str
     lang: str
     identifiers: Union[List[IdentifierData], List[str]]
-    identifiers_type: IDENTIFIERS_TYPES  # VERBOSE for IdentifierData, STRING for str.
+    identifiers_type: IdentifiersTypes  # VERBOSE for IdentifierData, STRING for str.
     start_byte: int
     start_line: int
     start_column: int
@@ -67,6 +74,7 @@ class ObjectData:
     end_column: int
 
 
+# TODO: think about the duplication of identifiers_type
 @dataclasses.dataclass
 class FileData:
     """
@@ -76,7 +84,7 @@ class FileData:
     lang: str
     objects: List[ObjectData]
     identifiers: Union[List[IdentifierData], List[str]]
-    identifiers_type: IDENTIFIERS_TYPES  # VERBOSE for IdentifierData, STRING for str.
+    identifiers_type: IdentifiersTypes  # VERBOSE for IdentifierData, STRING for str.
 
 
 class RepositoryError(ValueError):
@@ -98,7 +106,7 @@ def read_file(file: str) -> str:
         return fin.read()
 
 
-def split_list_into_batches(lst: List[Any], batch_size: int) -> List[List[Any]]:
+def to_batches(lst: List[Any], batch_size: int) -> List[List[Any]]:
     """
     Split a given list into sublists with a given maximum number of items.
     :param lst: a list.
@@ -121,6 +129,7 @@ def assert_trailing_slash(link: str) -> str:
         return link + "/"
 
 
+# TODO: maybe do it without modifying the link (consider GIT_TERMINAL_PROMT=0)
 def clone_repository(repository: str, directory: str) -> None:
     """
     Clone a given repository into a folder.
@@ -157,6 +166,7 @@ def get_full_path(file: str, directory: str) -> str:
     return os.path.abspath(os.path.join(directory, file))
 
 
+# TODO: Avoid hardcoded values
 def transform_files_list(lang2files: Dict[str, List[str]], gran: str,
                          languages: Optional[List[str]]) -> List[Tuple[str, str]]:
     """
@@ -164,7 +174,7 @@ def transform_files_list(lang2files: Dict[str, List[str]], gran: str,
     for supported languages only. Supported languages depend on the granularity and whether one
     specific language was specified.
     :param lang2files: the dictionary output of Enry: {language: [files], ...}.
-    :param gran: granularity of parsing. Values are ["projects", "files", "classes", "functions"].
+    :param gran: granularity of parsing. Values are in GRANULARITIES const.
     :param languages: the languages of parsing. None for all the languages available for a
                       given parsing granularity, specific languages for themselves.
     :return: a list of tuples (full_path_to_file, lang) for the necessary languages.
@@ -177,6 +187,7 @@ def transform_files_list(lang2files: Dict[str, List[str]], gran: str,
     elif gran == "functions":
         res_langs = SUPPORTED_LANGUAGES["functions"]
     else:
+        # TODO: Better error messages
         raise ValueError("Incorrect granularity of parsing.")
     # If specific languages were specified, override the results
     # and check their availability for a given granularity.
@@ -189,7 +200,7 @@ def transform_files_list(lang2files: Dict[str, List[str]], gran: str,
                 raise ValueError(f"{language} doesn't support {gran} granularity.")
         res_langs = set(languages)
     files = []
-    for lang in lang2files.keys():
+    for lang in lang2files:
         if lang in res_langs:
             for file in lang2files[lang]:
                 files.append((file, lang))

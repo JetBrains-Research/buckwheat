@@ -11,10 +11,10 @@ from ..language_recognition.utils import identify_system
 
 DOWNLOAD_URLS = {
     "Linux":
-        "https://github.com/JetBrains-Research/identifiers-extractor/releases/download/v1.1.1/"
+        "https://github.com/JetBrains-Research/identifiers-extractor/releases/latest/download/"
         "tree-sitter-linux.tar.gz",
     "Darwin":
-        "https://github.com/JetBrains-Research/identifiers-extractor/releases/download/v1.1.1/"
+        "https://github.com/JetBrains-Research/identifiers-extractor/releases/latest/download/"
         "tree-sitter-darwin.tar.gz"
 }
 

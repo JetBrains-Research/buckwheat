@@ -18,13 +18,18 @@ from .parsing.utils import get_parser
 from .saver import OutputFormats
 from .subtokenizer import TokenParser
 from .utils import SUPPORTED_LANGUAGES, PARSING_MODES, GRANULARITIES, OUTPUT_FORMATS, \
-    IDENTIFIERS_TYPES, OBJECT_TYPES, FileData, IdentifierData, ObjectData, RepositoryError,\
+    IdentifiersTypes, ObjectTypes, FileData, IdentifierData, ObjectData, RepositoryError,\
     assert_trailing_slash, clone_repository, get_full_path, get_latest_commit, read_file,\
-    split_list_into_batches, transform_files_list
+    to_batches, transform_files_list
 
+# TODO: better naming
+# TODO: add AST functionality
+
+# TODO: check the proper way to create a singleton
 # One instance for further subtokenizing
-Subtokenizer = TokenParser()
+subtokenizer = TokenParser()
 
+# TODO: give the user the possibility the specify the number of processors
 # Number of threads for multi-processing
 PROCESSES = cpu_count()
 
@@ -37,19 +42,21 @@ def subtokenize_identifier(token: Union[str, IdentifierData]) -> \
     :return: a list of the corresponding objects for each subtoken.
     """
     if isinstance(token, str):
-        subtokens = [subtoken for subtoken in list(Subtokenizer.process_token(token))]
+        subtokens = [subtoken for subtoken in list(subtokenizer.process_token(token))]
     elif isinstance(token, IdentifierData):
         # Currently, each subtoken returns the coordinates of the original token.
         # TODO: fix the subtokenization to account for the change of coordinates.
         subtokens = [IdentifierData(identifier=subtoken, start_byte=token.start_byte,
                                     start_line=token.start_line,
                                     start_column=token.start_column)
-                     for subtoken in list(Subtokenizer.process_token(token.identifier))]
+                     for subtoken in list(subtokenizer.process_token(token.identifier))]
     else:
         raise TypeError("Unknown format of token!")
     return subtokens
 
 
+# TODO: language names' normalization
+# TODO: do we really need a class with only static methods?
 class TreeSitterParser:
     # Tree-sitter grammars corresponding to a given language.
     PARSERS = {"JavaScript": "javascript",
@@ -124,6 +131,7 @@ class TreeSitterParser:
         end = node.end_byte
         return start, end
 
+    # TODO: non-recursive traversal
     @staticmethod
     def traverse_tree(node: tree_sitter.Node, types: Set[str]) -> Iterator[tree_sitter.Node]:
         """
@@ -210,7 +218,7 @@ class TreeSitterParser:
                                                                    subtokenize)
 
     @staticmethod
-    def get_object_from_node(object_type: OBJECT_TYPES, code: bytes, node: tree_sitter.Node,
+    def get_object_from_node(object_type: ObjectTypes, code: bytes, node: tree_sitter.Node,
                              lang: str, identifiers_verbose: bool = False,
                              subtokenize: bool = False) -> ObjectData:
         """
@@ -233,9 +241,9 @@ class TreeSitterParser:
                                                                           identifiers_verbose,
                                                                           subtokenize)
         if identifiers_verbose:
-            identifiers_type = IDENTIFIERS_TYPES.VERBOSE
+            identifiers_type = IdentifiersTypes.VERBOSE
         else:
-            identifiers_type = IDENTIFIERS_TYPES.STRING
+            identifiers_type = IdentifiersTypes.STRING
         return ObjectData(object_type=object_type, content=content, lang=lang,
                           identifiers=identifiers, identifiers_type=identifiers_type,
                           start_byte=start_byte, start_line=start_line, start_column=start_column,
@@ -258,6 +266,7 @@ class TreeSitterParser:
             class_types = TreeSitterParser.CLASSES[lang]
         return identifier_types | function_types | class_types
 
+    # TODO: check pipeline patterns, refactor
     @staticmethod
     def get_data_from_file(file: str, lang: str, gather_objects: bool, gather_identifiers: bool,
                            identifiers_verbose: bool = False,
@@ -278,9 +287,9 @@ class TreeSitterParser:
         tree = get_parser(TreeSitterParser.PARSERS[lang]).parse(code)
         root = tree.root_node
         if identifiers_verbose:
-            identifiers_type = IDENTIFIERS_TYPES.VERBOSE
+            identifiers_type = IdentifiersTypes.VERBOSE
         else:
-            identifiers_type = IDENTIFIERS_TYPES.STRING
+            identifiers_type = IdentifiersTypes.STRING
         identifiers = []
         objects = []
         # The tree is traversed once per file
@@ -300,14 +309,14 @@ class TreeSitterParser:
             # Gathering ObjectData for functions
             elif node.type in TreeSitterParser.FUNCTIONS[lang]:
                 if gather_objects:
-                    objects.append(TreeSitterParser.get_object_from_node(OBJECT_TYPES.FUNCTION,
+                    objects.append(TreeSitterParser.get_object_from_node(ObjectTypes.FUNCTION,
                                                                          code, node, lang,
                                                                          identifiers_verbose,
                                                                          subtokenize))
             # Gathering ObjectData for classes
             elif node.type in TreeSitterParser.CLASSES[lang]:
                 if gather_objects:
-                    objects.append(TreeSitterParser.get_object_from_node(OBJECT_TYPES.CLASS, code,
+                    objects.append(TreeSitterParser.get_object_from_node(ObjectTypes.CLASS, code,
                                                                          node, lang,
                                                                          identifiers_verbose,
                                                                          subtokenize))
@@ -315,6 +324,7 @@ class TreeSitterParser:
                         identifiers_type=identifiers_type)
 
 
+# TODO: common parent class for Pygments and Tree-sitter
 class PygmentsParser:
     # Pygments lexers corresponding to a given language.
     LEXERS = {"Scala": ScalaLexer(),
@@ -371,9 +381,9 @@ class PygmentsParser:
                                                                         identifiers_verbose,
                                                                         subtokenize)
         if identifiers_verbose:
-            identifiers_type = IDENTIFIERS_TYPES.VERBOSE
+            identifiers_type = IdentifiersTypes.VERBOSE
         else:
-            identifiers_type = IDENTIFIERS_TYPES.STRING
+            identifiers_type = IdentifiersTypes.STRING
         # The "objects" are always empty, because Pygments don't support recognizing them.
         return FileData(path=file, lang=lang, objects=[], identifiers=identifiers,
                         identifiers_type=identifiers_type)
@@ -413,11 +423,8 @@ def get_identifiers_sequence_from_file(file: str, lang: str, identifiers_verbose
     :param subtokenize: if True, will split the tokens into subtokens.
     :return: list of identifiers as either strings or IdentifierData objects.
     """
-    try:
-        code = read_file(file)
-        return get_identifiers_sequence_from_code(code, lang, identifiers_verbose, subtokenize)
-    except (FileNotFoundError, UnicodeDecodeError):
-        raise
+    code = read_file(file)
+    return get_identifiers_sequence_from_code(code, lang, identifiers_verbose, subtokenize)
 
 
 def get_data_from_file(file: str, lang: str, gather_objects: bool, gather_identifiers: bool,
@@ -448,7 +455,7 @@ def get_data_from_file(file: str, lang: str, gather_objects: bool, gather_identi
         logging.warning(f"UnicodeDecodeError in {file}, skipping...")
         # Returning empty file for multiprocessing and further skipping during saving.
         return FileData(path=file, lang=lang, objects=[], identifiers=[],
-                        identifiers_type=IDENTIFIERS_TYPES.STRING)
+                        identifiers_type=IdentifiersTypes.STRING)
 
 
 def get_functions_from_file(file: str, lang: str, identifiers_verbose: bool = False,
@@ -469,7 +476,7 @@ def get_functions_from_file(file: str, lang: str, identifiers_verbose: bool = Fa
                                                     identifiers_verbose=identifiers_verbose,
                                                     subtokenize=subtokenize)
     for obj in file_data.objects:
-        if obj.object_type == OBJECT_TYPES.FUNCTION:
+        if obj.object_type == ObjectTypes.FUNCTION:
             yield obj
 
 
@@ -491,10 +498,11 @@ def get_classes_from_file(file: str, lang: str, identifiers_verbose: bool = Fals
                                                     identifiers_verbose=identifiers_verbose,
                                                     subtokenize=subtokenize)
     for obj in file_data.objects:
-        if obj.object_type == OBJECT_TYPES.CLASS:
+        if obj.object_type == ObjectTypes.CLASS:
             yield obj
 
 
+# TODO: functionality for GitHub link creation
 def tokenize_repository(repository: str, local: bool, mode: str, gran: str,
                         languages: Optional[List[str]], pool: Parallel,
                         identifiers_verbose: bool = False,
@@ -521,15 +529,12 @@ def tokenize_repository(repository: str, local: bool, mode: str, gran: str,
         if local:
             directory = repository  # Working directly with a path in the local mode
             if not os.path.isdir(directory):
-                raise RepositoryError(f"{directory} doesn't exist!")
+                raise RepositoryError(f"{directory} isn't a directory!")
             repository_name = directory
         else:
             logging.debug(f"Cloning {repository}.")
             directory = td  # Working with a temporary directory in the remote mode
-            try:
-                clone_repository(repository, directory)  # Cloning the repository
-            except RepositoryError:
-                raise
+            clone_repository(repository, directory)  # Cloning the repository
             # The name of the repository includes the commit for working links.
             commit = get_latest_commit(directory)
             repository_name = f"{repository}tree/{commit}/"
@@ -538,6 +543,7 @@ def tokenize_repository(repository: str, local: bool, mode: str, gran: str,
         files = transform_files_list(lang2files, gran, languages)
         logging.debug(f"Parsing files in {repository}.")
         # Parsing for files and projects does not require gathering ObjectData objects.
+        # TODO: avoid hardcoded names
         if gran in ["projects", "files"]:
             gather_objects = False
             gather_identifiers = True
@@ -599,9 +605,10 @@ def tokenize_list_of_repositories(repositories_file: str, output_dir: str, batch
     # Reading the input file and splitting repositories into batches.
     with open(repositories_file) as fin:
         repositories_list = fin.read().splitlines()
-        repositories_batches = split_list_into_batches(repositories_list, batch_size)
+        repositories_batches = to_batches(repositories_list, batch_size)
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
+    # TODO: user should configure the number of processes
     with Parallel(PROCESSES) as pool:
         # Iterating over batches
         for count_batch, batch in enumerate(repositories_batches):
@@ -609,6 +616,7 @@ def tokenize_list_of_repositories(repositories_file: str, output_dir: str, batch
             reps2files = {}
             filename = f"{output_format}_{mode}_{gran}_{count_batch}.txt"
             # Iterating over repositories in the batch
+            # TODO: add progress bar
             for count_repository, repository in enumerate(batch):
                 logging.info(f"Tokenizing repository: {repository} ({count_repository + 1} "
                              f"out of {len(batch)} in batch {count_batch + 1}).")
