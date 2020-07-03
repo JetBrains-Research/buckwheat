@@ -5,7 +5,7 @@ from collections import Counter
 import os
 import unittest
 
-from ..parsing import get_tokens
+from ..tokenizer import get_identifiers_sequence_from_file
 
 tests_dir = os.path.abspath(os.path.dirname(__file__))
 
@@ -85,14 +85,14 @@ class TestParser(unittest.TestCase):
                          {"pat": 10, "match": 6, "lookup": 2, "func": 2, "vars": 2, "just": 2,
                           "noth": 2, "length": 2, "string": 1, "reader": 1, "defs": 1, "ask": 1,
                           "pure": 1, "maybe": 1, "var": 1, "insert": 1, "bpat": 1, "cpat": 1,
-                          "when": 1, "fail": 1, "fold": 1, "zip": 1}],
-                        ["Python", "nonexisting_file.py", {}]]
+                          "when": 1, "fail": 1, "fold": 1, "zip": 1}]]
 
     def test_parser(self):
         for data in TestParser.test_parser_data:
             with self.subTest():
                 file = os.path.abspath(os.path.join(tests_dir, "test_files", data[1]))
-                tokens = get_tokens(file, data[0])
+                tokens = Counter(get_identifiers_sequence_from_file(
+                    file, data[0], identifiers_verbose=False, subtokenize=True))
                 self.assertEqual(tokens, Counter(data[2]))
 
 

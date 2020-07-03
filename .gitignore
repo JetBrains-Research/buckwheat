@@ -1,5 +1,4 @@
-/identifiers_extractor/parsers/build/*
-!identifiers_extractor/parsers/build/.gitkeep
-/identifiers_extractor/language_recognition/build/*
-!identifiers_extractor/language_recognition/build/.gitkeep
-/identifiers_extractor/tests/test_results/
+/buckwheat/parsing/build/*
+!buckwheat/parsing/build/.gitkeep
+/buckwheat/language_recognition/build/*
+!buckwheat/language_recognition/build/.gitkeep

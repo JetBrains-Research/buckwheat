@@ -4,7 +4,7 @@ Subtokenizing-related tests.
 import os
 import unittest
 
-from ..subtokenizing import TokenParser
+from ..subtokenizer import TokenParser
 
 tests_dir = os.path.abspath(os.path.dirname(__file__))
 
