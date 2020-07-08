@@ -144,16 +144,15 @@ class TreeSitterParser:
         :param types: the set of types of interest.
         :return: the iterator of Tree-sitter nodes of necessary types.
         """
-        current_depth = 0
-        stack = deque([(node, current_depth)])
+        stack = deque([(node, 0)])
 
         while stack:
+            node, current_depth = stack.popleft()
+
             if current_depth > MAX_AST_DEPTH:
                 raise DeepASTError("Current AST traversal is too deep")
 
-            node, current_depth = stack.popleft()
             stack.extendleft([(child, current_depth + 1) for child in reversed(node.children)])
-
             if node.type in types:
                 yield node
 
