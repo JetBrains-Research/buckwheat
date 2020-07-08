@@ -3,24 +3,26 @@ Tokenization-related functionality.
 """
 import logging
 import os
+from collections import deque
+from sys import getrecursionlimit
 from tempfile import TemporaryDirectory
 from typing import Iterator, List, Optional, Set, Tuple, Union
 
+import pygments
+import tree_sitter
 from joblib import cpu_count, delayed, Parallel
 from pygments.lexers.haskell import HaskellLexer
 from pygments.lexers.jvm import KotlinLexer, ScalaLexer
 from pygments.lexers.objective import SwiftLexer
-import pygments
-import tree_sitter
 
 from .language_recognition.utils import recognize_languages_dir
 from .parsing.utils import get_parser
 from .saver import OutputFormats
 from .subtokenizer import TokenParser
 from .utils import SUPPORTED_LANGUAGES, PARSING_MODES, GRANULARITIES, OUTPUT_FORMATS, \
-    IdentifiersTypes, ObjectTypes, FileData, IdentifierData, ObjectData, RepositoryError,\
-    assert_trailing_slash, clone_repository, get_full_path, get_latest_commit, read_file,\
-    to_batches, transform_files_list
+    IdentifiersTypes, ObjectTypes, FileData, IdentifierData, ObjectData, RepositoryError, \
+    assert_trailing_slash, clone_repository, get_full_path, get_latest_commit, read_file, \
+    to_batches, transform_files_list, DeepASTError
 
 # TODO: better naming
 # TODO: add AST functionality
@@ -32,6 +34,9 @@ subtokenizer = TokenParser()
 # TODO: give the user the possibility the specify the number of processors
 # Number of threads for multi-processing
 PROCESSES = cpu_count()
+
+# Maximum AST traversal depth allowed, equals recursion limit in order to mimic recursive dfs
+MAX_AST_DEPTH = getrecursionlimit()
 
 
 def subtokenize_identifier(token: Union[str, IdentifierData]) -> \
@@ -131,7 +136,6 @@ class TreeSitterParser:
         end = node.end_byte
         return start, end
 
-    # TODO: non-recursive traversal
     @staticmethod
     def traverse_tree(node: tree_sitter.Node, types: Set[str]) -> Iterator[tree_sitter.Node]:
         """
@@ -140,11 +144,18 @@ class TreeSitterParser:
         :param types: the set of types of interest.
         :return: the iterator of Tree-sitter nodes of necessary types.
         """
-        for child in node.children:
-            if child.type in types:
-                yield child
-            if len(child.children) != 0:
-                yield from TreeSitterParser.traverse_tree(child, types)
+        current_depth = 0
+        stack = deque([(node, current_depth)])
+
+        while stack:
+            if current_depth > MAX_AST_DEPTH:
+                raise DeepASTError("Current AST traversal is too deep")
+
+            node, current_depth = stack.popleft()
+            stack.extendleft([(child, current_depth + 1) for child in reversed(node.children)])
+
+            if node.type in types:
+                yield node
 
     @staticmethod
     def get_identifier_from_node(code: bytes, node: tree_sitter.Node,
@@ -182,19 +193,21 @@ class TreeSitterParser:
         :param subtokenize: if True, will split the tokens into subtokens.
         :return: list of identifiers as either strings or IdentifierData objects.
         """
-        try:
-            token_nodes = TreeSitterParser.traverse_tree(node, TreeSitterParser.IDENTIFIERS[lang])
-        except RecursionError:
-            return []
+        token_nodes = TreeSitterParser.traverse_tree(node, TreeSitterParser.IDENTIFIERS[lang])
         tokens_sequence = []
-        for token_node in token_nodes:
-            token = TreeSitterParser.get_identifier_from_node(code, token_node,
-                                                              identifiers_verbose)
-            if not subtokenize:
-                tokens_sequence.append(token)
-            else:
-                subtokens = subtokenize_identifier(token)
-                tokens_sequence.extend(subtokens)
+
+        try:
+            for token_node in token_nodes:
+                token = TreeSitterParser.get_identifier_from_node(code, token_node,
+                                                                  identifiers_verbose)
+                if not subtokenize:
+                    tokens_sequence.append(token)
+                else:
+                    subtokens = subtokenize_identifier(token)
+                    tokens_sequence.extend(subtokens)
+        except DeepASTError:
+            pass
+
         return tokens_sequence
 
     @staticmethod
@@ -292,34 +305,39 @@ class TreeSitterParser:
             identifiers_type = IdentifiersTypes.STRING
         identifiers = []
         objects = []
+
         # The tree is traversed once per file
-        for node in TreeSitterParser.traverse_tree(
-                root, TreeSitterParser.merge_nodes_for_lang(lang)):
-            # Gathering identifiers for the file
-            if node.type in TreeSitterParser.IDENTIFIERS[lang]:
-                if gather_identifiers:
-                    if not subtokenize:
-                        identifiers.append(TreeSitterParser
-                                           .get_identifier_from_node(code, node,
-                                                                     identifiers_verbose))
-                    else:
-                        identifiers.extend(subtokenize_identifier(
-                            TreeSitterParser.get_identifier_from_node(code, node,
-                                                                      identifiers_verbose)))
-            # Gathering ObjectData for functions
-            elif node.type in TreeSitterParser.FUNCTIONS[lang]:
-                if gather_objects:
-                    objects.append(TreeSitterParser.get_object_from_node(ObjectTypes.FUNCTION,
-                                                                         code, node, lang,
-                                                                         identifiers_verbose,
-                                                                         subtokenize))
-            # Gathering ObjectData for classes
-            elif node.type in TreeSitterParser.CLASSES[lang]:
-                if gather_objects:
-                    objects.append(TreeSitterParser.get_object_from_node(ObjectTypes.CLASS, code,
-                                                                         node, lang,
-                                                                         identifiers_verbose,
-                                                                         subtokenize))
+        try:
+            for node in TreeSitterParser.traverse_tree(
+                    root, TreeSitterParser.merge_nodes_for_lang(lang)):
+                # Gathering identifiers for the file
+                if node.type in TreeSitterParser.IDENTIFIERS[lang]:
+                    if gather_identifiers:
+                        if not subtokenize:
+                            identifiers.append(TreeSitterParser
+                                               .get_identifier_from_node(code, node,
+                                                                         identifiers_verbose))
+                        else:
+                            identifiers.extend(subtokenize_identifier(
+                                TreeSitterParser.get_identifier_from_node(code, node,
+                                                                          identifiers_verbose)))
+                # Gathering ObjectData for functions
+                elif node.type in TreeSitterParser.FUNCTIONS[lang]:
+                    if gather_objects:
+                        objects.append(TreeSitterParser.get_object_from_node(ObjectTypes.FUNCTION,
+                                                                             code, node, lang,
+                                                                             identifiers_verbose,
+                                                                             subtokenize))
+                # Gathering ObjectData for classes
+                elif node.type in TreeSitterParser.CLASSES[lang]:
+                    if gather_objects:
+                        objects.append(TreeSitterParser.get_object_from_node(ObjectTypes.CLASS, code,
+                                                                             node, lang,
+                                                                             identifiers_verbose,
+                                                                             subtokenize))
+        except DeepASTError:
+            pass
+
         return FileData(path=file, lang=lang, objects=objects, identifiers=identifiers,
                         identifiers_type=identifiers_type)
 

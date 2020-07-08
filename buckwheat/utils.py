@@ -91,9 +91,12 @@ class RepositoryError(ValueError):
     """
     A special error for catching wrong links to repositories and skipping such repositories.
     """
+    pass
 
-    def __init__(self, *args):
-        ValueError.__init__(self, *args)
+
+class DeepASTError(ValueError):
+    """Exception raised when current ast traversal is too deep"""
+    pass
 
 
 def read_file(file: str) -> str:
