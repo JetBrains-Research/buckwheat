@@ -94,11 +94,6 @@ class RepositoryError(ValueError):
     pass
 
 
-class DeepASTError(ValueError):
-    """Exception raised when current ast traversal is too deep"""
-    pass
-
-
 def read_file(file: str) -> str:
     """
     Read the contents of the file.
