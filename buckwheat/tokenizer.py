@@ -4,7 +4,6 @@ Tokenization-related functionality.
 import logging
 import os
 from collections import deque
-from sys import getrecursionlimit
 from tempfile import TemporaryDirectory
 from typing import Iterator, List, Optional, Set, Tuple, Union
 
