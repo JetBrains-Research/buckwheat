@@ -95,7 +95,7 @@ class RepositoryError(ValueError):
 
 
 class DeepASTError(ValueError):
-    """Exception raised when current ast traversal is too deep"""
+    """Exception raised when current AST traversal is too deep"""
     pass
 
 
