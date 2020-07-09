@@ -1,18 +1,18 @@
 """
 Tokenization-related functionality.
 """
+from collections import deque
 import logging
 import os
-from collections import deque
 from tempfile import TemporaryDirectory
 from typing import Iterator, List, Optional, Set, Tuple, Union
 
-import pygments
-import tree_sitter
 from joblib import cpu_count, delayed, Parallel
+import pygments
 from pygments.lexers.haskell import HaskellLexer
 from pygments.lexers.jvm import KotlinLexer, ScalaLexer
 from pygments.lexers.objective import SwiftLexer
+import tree_sitter
 
 from .language_recognition.utils import recognize_languages_dir
 from .parsing.utils import get_parser
