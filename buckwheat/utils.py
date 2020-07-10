@@ -91,9 +91,7 @@ class RepositoryError(ValueError):
     """
     A special error for catching wrong links to repositories and skipping such repositories.
     """
-
-    def __init__(self, *args):
-        ValueError.__init__(self, *args)
+    pass
 
 
 def read_file(file: str) -> str:

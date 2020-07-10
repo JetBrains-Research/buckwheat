@@ -1,16 +1,17 @@
 """
 Tokenization-related functionality.
 """
+from collections import deque
 import logging
 import os
 from tempfile import TemporaryDirectory
 from typing import Iterator, List, Optional, Set, Tuple, Union
 
 from joblib import cpu_count, delayed, Parallel
+import pygments
 from pygments.lexers.haskell import HaskellLexer
 from pygments.lexers.jvm import KotlinLexer, ScalaLexer
 from pygments.lexers.objective import SwiftLexer
-import pygments
 import tree_sitter
 
 from .language_recognition.utils import recognize_languages_dir
@@ -18,8 +19,8 @@ from .parsing.utils import get_parser
 from .saver import OutputFormats
 from .subtokenizer import TokenParser
 from .utils import SUPPORTED_LANGUAGES, PARSING_MODES, GRANULARITIES, OUTPUT_FORMATS, \
-    IdentifiersTypes, ObjectTypes, FileData, IdentifierData, ObjectData, RepositoryError,\
-    assert_trailing_slash, clone_repository, get_full_path, get_latest_commit, read_file,\
+    IdentifiersTypes, ObjectTypes, FileData, IdentifierData, ObjectData, RepositoryError, \
+    assert_trailing_slash, clone_repository, get_full_path, get_latest_commit, read_file, \
     to_batches, transform_files_list
 
 # TODO: better naming
@@ -131,7 +132,6 @@ class TreeSitterParser:
         end = node.end_byte
         return start, end
 
-    # TODO: non-recursive traversal
     @staticmethod
     def traverse_tree(node: tree_sitter.Node, types: Set[str]) -> Iterator[tree_sitter.Node]:
         """
@@ -140,11 +140,13 @@ class TreeSitterParser:
         :param types: the set of types of interest.
         :return: the iterator of Tree-sitter nodes of necessary types.
         """
-        for child in node.children:
-            if child.type in types:
-                yield child
-            if len(child.children) != 0:
-                yield from TreeSitterParser.traverse_tree(child, types)
+        stack = deque([node])
+
+        while stack:
+            node = stack.popleft()
+            stack.extendleft(reversed(node.children))
+            if node.type in types:
+                yield node
 
     @staticmethod
     def get_identifier_from_node(code: bytes, node: tree_sitter.Node,
@@ -182,19 +184,17 @@ class TreeSitterParser:
         :param subtokenize: if True, will split the tokens into subtokens.
         :return: list of identifiers as either strings or IdentifierData objects.
         """
-        try:
-            token_nodes = TreeSitterParser.traverse_tree(node, TreeSitterParser.IDENTIFIERS[lang])
-        except RecursionError:
-            return []
+        token_nodes = TreeSitterParser.traverse_tree(node, TreeSitterParser.IDENTIFIERS[lang])
         tokens_sequence = []
+
         for token_node in token_nodes:
-            token = TreeSitterParser.get_identifier_from_node(code, token_node,
-                                                              identifiers_verbose)
+            token = TreeSitterParser.get_identifier_from_node(code, token_node, identifiers_verbose)
             if not subtokenize:
                 tokens_sequence.append(token)
             else:
                 subtokens = subtokenize_identifier(token)
                 tokens_sequence.extend(subtokens)
+
         return tokens_sequence
 
     @staticmethod
@@ -290,8 +290,10 @@ class TreeSitterParser:
             identifiers_type = IdentifiersTypes.VERBOSE
         else:
             identifiers_type = IdentifiersTypes.STRING
+
         identifiers = []
         objects = []
+
         # The tree is traversed once per file
         for node in TreeSitterParser.traverse_tree(
                 root, TreeSitterParser.merge_nodes_for_lang(lang)):
@@ -320,6 +322,7 @@ class TreeSitterParser:
                                                                          node, lang,
                                                                          identifiers_verbose,
                                                                          subtokenize))
+
         return FileData(path=file, lang=lang, objects=objects, identifiers=identifiers,
                         identifiers_type=identifiers_type)
 
