@@ -121,6 +121,21 @@ class TreeSitterParser:
                  "Shell": {"function_definition"},
                  "Rust": {"function_item"}}
 
+    # Tree-sitter nodes corresponding to comments in a given language
+    COMMENTS = {"JavaScript": {"comment"},
+                "Python": {"comment"},
+                "Java": {"comment"},
+                "Go": {"comment"},
+                "C++": {"comment"},
+                "C": {"comment"},
+                "Ruby": {"comment"},
+                "TypeScript": {"comment"},
+                "TSX": {"comment"},
+                "PHP": {"comment"},
+                "C#": {"comment"},
+                "Shell": {"comment", "line_comment", "block_comment"},
+                "Rust": {"comment", "line_comment", "block_comment"}}
+
     @staticmethod
     def get_positional_bytes(node: tree_sitter.Node) -> Tuple[int, int]:
         """
@@ -248,6 +263,29 @@ class TreeSitterParser:
                           identifiers=identifiers, identifiers_type=identifiers_type,
                           start_byte=start_byte, start_line=start_line, start_column=start_column,
                           end_byte=end_byte, end_line=end_line, end_column=end_column)
+
+    @staticmethod
+    def get_comments_from_file(file: str, lang: str) -> List[str]:
+        """
+        Given a file and language of this file. Extract comments from this file.
+        :param file: the path to file.
+        :param lang: the language of code.
+        :return: list of comments.
+        """
+        comments = []
+        code = read_file(file)
+        code = bytes(code, "utf-8")
+
+        tree = get_parser(TreeSitterParser.PARSERS[lang]).parse(code)
+        root = tree.root_node
+        token_nodes = TreeSitterParser.traverse_tree(root, TreeSitterParser.COMMENTS[lang])
+
+        for token_node in token_nodes:
+            start_byte, end_byte = TreeSitterParser.get_positional_bytes(root)
+            comment = code[start_byte:end_byte].decode("utf-8")
+            comments.append(comment)
+
+        return comments
 
     @staticmethod
     def merge_nodes_for_lang(lang: str) -> Set[str]:
