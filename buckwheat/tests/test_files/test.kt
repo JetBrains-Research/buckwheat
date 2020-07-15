@@ -1,12 +1,16 @@
 package cli
 
 fun main(args: Array<String>) {
+    // corner-case situation d
     if (args.isEmpty()) {
         println("""
              You should specify the task as the first argument ("preprocess", "parse", "pathContexts", or "code2vec").
              For more information run `./cli.sh taskName --help`
         """.trimIndent())
     } else {
+        /* Process things from args
+           If corner-case didn't happend
+         */
         return when (args[0]) {
             "preprocess" -> ProjectPreprocessor().main(args.sliceArray(1 until args.size))
             "parse" -> ProjectParser().main(args.sliceArray(1 until args.size))

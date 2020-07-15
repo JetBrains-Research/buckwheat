@@ -2,6 +2,7 @@ import os
 
 from tree_sitter import Language, Parser
 
+# No parsers need to be declared here
 PARSERS = {}
 
 

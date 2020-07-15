@@ -1,8 +1,12 @@
+// Declaration of variables
 var (
 	version = "not-set"
 	commit  = "not-set"
 )
 
+/* Breaking Down function
+   iterating over name and language
+*/
 func printBreakDown(out map[string][]string, buff *bytes.Buffer) {
 	for name, language := range out {
 		fmt.Fprintln(buff, name)

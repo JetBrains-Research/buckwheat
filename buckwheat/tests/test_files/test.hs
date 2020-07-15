@@ -1,6 +1,8 @@
+-- functions declaration
 lookupFunc :: String -> Reader DefsM E
 lookupFunc x = R.ask >>= pure . (M.! x)
 
+{-|Try to match things together|-}
 matchPat :: VarsM -> (Pat, E) -> Maybe VarsM
 matchPat m (VarPat x, e)       = Just $ M.insert x e m
 matchPat m (BPat b, B b')      = if b == b' then Just m else Nothing
