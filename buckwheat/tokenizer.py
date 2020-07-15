@@ -442,7 +442,7 @@ class PygmentsParser:
         """
         Given a file and language of this file. Extract comments from this file.
         :param file: the path to file.
-        :param lang: the language of code.
+        :param lang: programming language.
         :return: list of comments.
         """
         comments = []
