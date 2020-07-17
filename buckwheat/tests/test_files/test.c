@@ -16,6 +16,8 @@ long octalToDecimal(int octalnum)
 
     return decimalnum;
 }
+
+// main function - the starting point
 int main()
 {
     int octalnum;

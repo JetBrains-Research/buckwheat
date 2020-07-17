@@ -1,8 +1,7 @@
 /// Defining variable for checking Network
 var targetInterface: NIONetworkInterface? = nil
 
-/**
- Check interface
+/** Check interface
  if interface is not available - error occurs
 */
 if let interfaceAddress = CommandLine.arguments.dropFirst().first,

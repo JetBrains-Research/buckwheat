@@ -11,6 +11,9 @@ fn main() {
     // Unwrapping a `Some` variant will extract the value wrapped.
     println!("{:?} unwraps to {:?}", optional_float, optional_float.unwrap());
 
-    // Unwrapping a `None` variant will `panic!`
+    /*
+     Unwrapping a `None`
+     variant will `panic!`
+     */
     println!("{:?} unwraps to {:?}", none, none.unwrap());
 }

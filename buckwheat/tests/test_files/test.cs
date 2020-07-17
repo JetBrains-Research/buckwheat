@@ -14,7 +14,8 @@ private void MyTaskCompletedCallback(IAsyncResult ar)
     _myTaskIsRunning = false;
   }
 
-  // raise the completed event
+  /* raise the
+  completed event*/
   AsyncCompletedEventArgs completedArgs = new AsyncCompletedEventArgs(null,
     false, null);
   async.PostOperationCompleted(

@@ -17,10 +17,7 @@ SUPPORTED_LANGUAGES = {"tree-sitter": {"JavaScript", "Python", "Java", "Go", "C+
                        "classes": {"JavaScript", "Python", "Java", "C++", "Ruby", "TypeScript",
                                    "TSX", "PHP", "C#"},
                        "functions": {"JavaScript", "Python", "Java", "Go", "C++", "Ruby",
-                                     "TypeScript", "TSX", "PHP", "C#", "C", "Shell", "Rust"},
-                       "comments": {"JavaScript", "Python", "Java", "Go", "C++", "Ruby",
-                                    "TypeScript", "TSX", "PHP", "C#", "C", "Shell", "Rust",
-                                    "Scala", "Swift", "Kotlin", "Haskell"}}
+                                     "TypeScript", "TSX", "PHP", "C#", "C", "Shell", "Rust"}}
 
 # Supported parsing modes
 PARSING_MODES = {"sequences", "counters"}

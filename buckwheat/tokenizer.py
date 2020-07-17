@@ -12,6 +12,7 @@ import pygments
 from pygments.lexers.haskell import HaskellLexer
 from pygments.lexers.jvm import KotlinLexer, ScalaLexer
 from pygments.lexers.objective import SwiftLexer
+from pygments.lexers.python import PythonLexer
 import tree_sitter
 
 from .language_recognition.utils import recognize_languages_dir, recognize_language_file
@@ -123,7 +124,6 @@ class TreeSitterParser:
 
     # Tree-sitter nodes corresponding to comments in a given language
     COMMENTS = {"JavaScript": {"comment"},
-                "Python": {"comment"},
                 "Java": {"comment"},
                 "Go": {"comment"},
                 "C++": {"comment"},
@@ -287,7 +287,6 @@ class TreeSitterParser:
 
         return comments
 
-
     @staticmethod
     def merge_nodes_for_lang(lang: str) -> Set[str]:
         """
@@ -372,7 +371,8 @@ class PygmentsParser:
     LEXERS = {"Scala": ScalaLexer(),
               "Swift": SwiftLexer(),
               "Kotlin": KotlinLexer(),
-              "Haskell": HaskellLexer()}
+              "Haskell": HaskellLexer(),
+              "Python": PythonLexer()}
 
     # Pygments token types corresponding to identifiers in a given language.
     IDENTIFIERS = {"Scala": {pygments.token.Name, pygments.token.Keyword.Type},
@@ -382,9 +382,9 @@ class PygmentsParser:
 
     # Pygments token types corresponding to comments in a given language.
     COMMENTS = {"Scala": {pygments.token.Comment},
-               "Swift": {pygments.token.Comment},
-               "Kotlin": {pygments.token.Comment},
-               "Haskell": {pygments.token.Comment}}
+                "Kotlin": {pygments.token.Comment},
+                "Haskell": {pygments.token.Comment},
+                "Python": {pygments.token.Comment, pygments.token.Literal.String.Doc}}
 
     @staticmethod
     def get_identifiers_sequence_from_code(code: str, lang: str, identifiers_verbose: bool = False,
@@ -438,7 +438,7 @@ class PygmentsParser:
                         identifiers_type=identifiers_type)
 
     @staticmethod
-    def get_comments_from_file(file:str, lang:str) -> List[str]:
+    def get_comments_from_file(file: str, lang: str) -> List[str]:
         """
         Given a file and language of this file. Extract comments from this file.
         :param file: the path to file.
@@ -569,7 +569,8 @@ def get_classes_from_file(file: str, lang: str, identifiers_verbose: bool = Fals
             yield obj
 
 
-def get_comments_from_file(file:str) -> List[str]:
+# TODO: Fix extraction of Swift comments
+def get_comments_from_file(file: str) -> List[str]:
     """
     Given a file. Extract comments from this file.
     :param file: the path to file.
@@ -577,9 +578,9 @@ def get_comments_from_file(file:str) -> List[str]:
     """
     lang = recognize_language_file(file)['language']
 
-    if lang in SUPPORTED_LANGUAGES["tree-sitter"]:
+    if lang in TreeSitterParser.COMMENTS.keys():
         return TreeSitterParser.get_comments_from_file(file, lang)
-    elif lang in SUPPORTED_LANGUAGES["pygments"]:
+    elif lang in PygmentsParser.COMMENTS.keys():
         return PygmentsParser.get_comments_from_file(file, lang)
     else:
         raise ValueError(f"Unsupported language!")
