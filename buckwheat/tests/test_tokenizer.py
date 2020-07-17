@@ -6,7 +6,7 @@ import os
 from typing import List, Dict, Callable, ClassVar
 import unittest
 
-from ..tokenizer import get_identifiers_sequence_from_file, get_comments_from_file
+from buckwheat.tokenizer import get_identifiers_sequence_from_file, get_comments_from_file
 
 tests_dir = os.path.abspath(os.path.dirname(__file__))
 
@@ -37,7 +37,9 @@ class TestParser(unittest.TestCase):
                            "parser": 2, "str": 2, "bin": 2, "loc": 2, "languag": 1,
                            "abspath": 1, "dirnam": 1, "file": 1, "join": 1}
     py_test.comments = ['# No parsers need to be declared here',
-                        '"""\n    Get tree-sitter directory.\n    :return: absolute path.\n    """',
+                        '"""\nFunctions definitions below\n"""',
+                        '"""\n    Get tree-sitter directory.\n    :return: absolute path.\n'
+                        '    """',
                         '"""\n    Get build tree-sitter `.so` location.\n'
                         '    :return: absolute path.\n    """']
 

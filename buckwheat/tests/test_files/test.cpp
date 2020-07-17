@@ -1,7 +1,11 @@
 int main(int argc, char* argv[])
 {
-  float mini = bs::Zero<float>();   // Initialize mini with zero
-  float maxi = bs::Valmax<float>(); /* Initialize maxi with maxval */
+  // Initialize mini with zero
+  float mini = bs::Zero<float>();
+
+  /* Initialize maxi with maxval */
+  float maxi = bs::Valmax<float>();
+
   if(argc >= 2) mini = std::atof(argv[1]);
   if(argc >= 3) maxi = std::atof(argv[2]);
   bs::exhaustive_test<bs::pack<float>> ( mini

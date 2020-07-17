@@ -578,9 +578,9 @@ def get_comments_from_file(file: str) -> List[str]:
     """
     lang = recognize_language_file(file)['language']
 
-    if lang in TreeSitterParser.COMMENTS.keys():
+    if lang in TreeSitterParser.COMMENTS:
         return TreeSitterParser.get_comments_from_file(file, lang)
-    elif lang in PygmentsParser.COMMENTS.keys():
+    elif lang in PygmentsParser.COMMENTS:
         return PygmentsParser.get_comments_from_file(file, lang)
     else:
         raise ValueError(f"Unsupported language!")

@@ -6,6 +6,9 @@ from tree_sitter import Language, Parser
 PARSERS = {}
 
 
+"""
+Functions definitions below
+"""
 def get_tree_sitter_dir() -> str:
     """
     Get tree-sitter directory.
