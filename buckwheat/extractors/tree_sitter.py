@@ -75,6 +75,7 @@ FUNCTIONS = {"JavaScript": {"function", "function_declaration", "method_definiti
 
 @dataclass
 class TreeSitterExtractor(BaseEntityExtractor):
+    """Entities extractor with tree-sitter backend"""
     types: Set[str]
 
     def __post_init__(self):
@@ -82,6 +83,12 @@ class TreeSitterExtractor(BaseEntityExtractor):
         self.parser = get_parser(parser_name)
 
     def traverse_tree(self, code: str) -> Generator[tree_sitter.Node, None, None]:
+        """
+        Traverse tree with TreeCursor in DFS-order and yield nodes of given types
+
+        :param code: source code string
+        :return: generator of tree_sitter.Node instances with given types
+        """
         tree: tree_sitter.Tree = self.parser.parse(code.encode())
         cursor: tree_sitter.TreeCursor = tree.walk()
 
@@ -105,12 +112,25 @@ class TreeSitterExtractor(BaseEntityExtractor):
                     has_next_sibling = cursor.goto_next_sibling()
 
     def parse_entities(self, code: str) -> Generator[BaseEntity, None, None]:
+        """
+        Parse entities from code with tree_sitter extractor.
+
+        :param code: source code string
+        :return: entities with self.types
+        """
         code_bytes = code.encode()
         for node in self.traverse_tree(code):
             identifier = code_bytes[node.start_byte:node.end_byte].decode()
             yield BaseEntity(identifier, node.start_byte, node.type)
 
     def parse_traversable_entities(self, code: str):
+        """
+        Parse traversable entities from code with pygments extractor. Differs from parse_entities
+        with presence of node in each entity, which allows to make something with AST around the node.
+
+        :param code: source code string
+        :return: entities with self.types
+        """
         code_bytes = code.encode()
         for node in self.traverse_tree(code):
             identifier = code_bytes[node.start_byte:node.end_byte].decode()

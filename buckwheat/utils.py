@@ -206,6 +206,7 @@ def transform_files_list(lang2files: Dict[str, List[str]], gran: str,
 
 
 class ProgrammingLanguages(Enum):
+    """Enum with programming languages available for processing"""
     CPP = "C++"
     TSX = "TSX"
     JS = "JavaScript"

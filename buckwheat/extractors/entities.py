@@ -18,6 +18,11 @@ class BaseEntity:
     # TODO: Check if identifier
     @property
     def subtokens(self) -> List[str]:
+        """
+        Return tokens from entity body
+
+        :return: Tokens from body
+        """
         return tokenizer.process_token(self.body)
 
 

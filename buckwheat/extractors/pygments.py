@@ -29,7 +29,7 @@ LEXERS = {
 @dataclass
 class PygmentsExtractor(BaseEntityExtractor):
     """
-    Entities extractor that uses pygments for extraction.
+    Entities extractor with pygments extractor.
     This extractor can only extract non-traversable entities and no structural information about code.
     """
     types: Set[Iterable[Any]]
@@ -38,6 +38,12 @@ class PygmentsExtractor(BaseEntityExtractor):
         self.lexer = LEXERS[self.programming_language.value]
 
     def parse_entities(self, code: str) -> Generator[BaseEntity, None, None]:
+        """
+        Parse entities from code with pygments extractor.
+
+        :param code: source code string
+        :return: entities with self.types
+        """
         for index, token_type, token in self.lexer.get_tokens_unprocessed(code):
             if any(token_type in token_types for token_types in self.types):
                 start_index = index
