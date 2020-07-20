@@ -203,3 +203,23 @@ def transform_files_list(lang2files: Dict[str, List[str]], gran: str,
             for file in lang2files[lang]:
                 files.append((file, lang))
     return files
+
+
+class ProgrammingLanguages(Enum):
+    CPP = "C++"
+    TSX = "TSX"
+    JS = "JavaScript"
+    GO = "Go"
+    JAVA = "Java"
+    RUBY = "Ruby"
+    TS = "TypeScript"
+    PHP = "PHP"
+    CSHARP = "C#"
+    C = "C"
+    SHELL = "Shell"
+    RUST = "Rust"
+    SCALA = "Scala"
+    SWIFT = "Swift"
+    KOTLIN = "Kotlin"
+    HASKELL = "Haskell"
+    PYTHON = "Python"

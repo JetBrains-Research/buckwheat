@@ -99,5 +99,5 @@ def recognize_language_file(file_path: str) -> Dict[str, str]:
         raise ValueError("Expected path to file path but got '%s'" % file_path)
     enry = get_enry()
     args = [enry, "-json", file_path]
-    res = subprocess.check_output(args)
+    res = subprocess.check_output(args, shell=True)
     return json.loads(res)

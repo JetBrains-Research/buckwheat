@@ -29,8 +29,9 @@ class TestPipeline(unittest.TestCase):
             tokenize_list_of_repositories(os.path.abspath(os.path.join(
                 tests_dir, "test_files", "test.txt")), td, 100, "counters", "files", None, True,
                 "wabbit", identifiers_verbose=False, subtokenize=True)
-            with open(os.path.abspath(os.path.join(td, "wabbit_counters_files_0.txt"))) as fin:
+            with open(os.path.join(td, "wabbit_counters_files_0.txt")) as fin:
                 wabbit_lines = sum(1 for _ in fin)
+
         self.assertEqual(wabbit_lines, 16)
 
 
