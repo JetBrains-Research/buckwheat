@@ -267,19 +267,15 @@ class TreeSitterParser:
         return identifier_types | function_types | class_types
 
     @staticmethod
-    def get_syntactic_tree_from_file(file: str, lang: str) -> Tuple[tree_sitter.Tree, bytes]:
+    def extract_ast(content: Union[str, bytes], lang: str) -> tree_sitter.Tree:
         """
-        Given a file and its language, return its syntactic tree and code
-        :param file: the path to file.
-        :param lang: the language of code.
-        :return: Tuple[tree_sitter.Tree, bytes]
+        Given a content and its language, return its abstract syntactic tree
+        :param content: the contents of some file
+        :param lang: the language of content.
+        :return: tree_sitter.Tree
         """
-        logging.debug(f"Getting syntactic tree from {file}")
-        code = read_file(file)
-        code = bytes(code, "utf-8")
-        tree = get_parser(TreeSitterParser.PARSERS[lang]).parse(code)
-
-        return tree, code
+        tree = get_parser(TreeSitterParser.PARSERS[lang]).parse(content)
+        return tree
 
     # TODO: check pipeline patterns, refactor
     @staticmethod
@@ -297,7 +293,9 @@ class TreeSitterParser:
         :param subtokenize: if True, will split the tokens into subtokens.
         :return: FileData object.
         """
-        tree, code = TreeSitterParser.get_syntactic_tree_from_file(file, lang)
+        code = read_file(file)
+        code = bytes(code, "utf-8")
+        tree = TreeSitterParser.extract_ast(code, lang)
         root = tree.root_node
         if identifiers_verbose:
             identifiers_type = IdentifiersTypes.VERBOSE
