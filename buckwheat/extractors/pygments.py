@@ -47,4 +47,4 @@ class PygmentsExtractor(BaseEntityExtractor):
         for index, token_type, token in self.lexer.get_tokens_unprocessed(code):
             if any(token_type in token_types for token_types in self.types):
                 start_index = index
-                yield BaseEntity(token, start_index, token_type)
+                yield BaseEntity(token, start_index, 0, 0, token_type)

@@ -121,9 +121,9 @@ class TreeSitterExtractor(BaseEntityExtractor):
         code_bytes = code.encode()
         for node in self.traverse_tree(code):
             identifier = code_bytes[node.start_byte:node.end_byte].decode()
-            yield BaseEntity(identifier, node.start_byte, node.type)
+            yield BaseEntity(identifier, node.start_byte, *node.start_point, node.type)
 
-    def parse_traversable_entities(self, code: str):
+    def parse_traversable_entities(self, code: str) -> Generator[TraversableEntity, None, None]:
         """
         Parse traversable entities from code with pygments extractor. Differs from parse_entities
         with presence of node in each entity, which allows to make something with AST around the node.
@@ -134,4 +134,4 @@ class TreeSitterExtractor(BaseEntityExtractor):
         code_bytes = code.encode()
         for node in self.traverse_tree(code):
             identifier = code_bytes[node.start_byte:node.end_byte].decode()
-            yield TraversableEntity(identifier, node.start_byte, node.type, node)
+            yield TraversableEntity(identifier, node.start_byte, *node.start_point, node.type, node)

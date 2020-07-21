@@ -1,15 +1,12 @@
-
 from collections import Counter
-from pathlib import Path
 from typing import Dict
 
 import pytest
 
-from buckwheat.utils import ProgrammingLanguages
-from buckwheat.extractors import pygments, tree_sitter
 from buckwheat.extractors import TreeSitterExtractor, PygmentsExtractor
-
-tests_files_dir = Path(__file__).parent / "samples" / "identifiers_extraction"
+from buckwheat.extractors import pygments, tree_sitter
+from buckwheat.utils import ProgrammingLanguages
+from tests.base import tests_files_dir
 
 
 @pytest.mark.parametrize("language,filename,actual_counts", [
@@ -82,7 +79,7 @@ def test_tree_sitter_identifiers_extraction(language: str, filename: str, actual
                             "bpat": 1, "cpat": 1, "when": 1, "fail": 1, "fold": 1, "zip": 1}],
 
 ])
-def test_pygments_identifiers_extraction(language, filename, actual_counts):
+def test_pygments_identifiers_extraction(language: str, filename: str, actual_counts: Dict[str, int]):
     test_file = tests_files_dir / filename
 
     with open(test_file) as f:

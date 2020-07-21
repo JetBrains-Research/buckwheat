@@ -13,16 +13,14 @@ class BaseEntity:
     """Entity from source code with start and end position"""
     body: str
     start_byte: int
+    start_line: int
+    start_column: int
     type: str
 
     # TODO: Check if identifier
     @property
     def subtokens(self) -> List[str]:
-        """
-        Return tokens from entity body
-
-        :return: Tokens from body
-        """
+        """Return tokens from entity body"""
         return tokenizer.process_token(self.body)
 
 
