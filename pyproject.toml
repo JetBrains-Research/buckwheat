@@ -11,6 +11,7 @@ tree-sitter = "^0.1.1"
 PyStemmer = "^2.0.1"
 joblib = "^0.16.0"
 Cython = "^0.29.21"
+dask = {extras = ["bag"], version = "^2.21.0"}
 
 [tool.poetry.dev-dependencies]
 pytest = "^5.4.3"

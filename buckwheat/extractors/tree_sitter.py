@@ -1,13 +1,15 @@
 from dataclasses import dataclass
-from typing import Set, Generator
+from typing import Set, Generator, Dict
 
 import tree_sitter
 
-from buckwheat.extractors.entities import BaseEntity, TraversableEntity
+from buckwheat.extractors.entities import BaseEntity, TreeEntity
 from buckwheat.extractors.base import BaseEntityExtractor
+from buckwheat.extractors.utils import traverse_down_with_cursor
 from buckwheat.parsing.utils import get_parser
 
 
+# Tree-sitter parsers corresponding to given language
 PARSERS = {"JavaScript": "javascript",
            "Python": "python",
            "Java": "java",
@@ -63,8 +65,8 @@ FUNCTIONS = {"JavaScript": {"function", "function_declaration", "method_definiti
              "Go": {"function_declaration", "method_declaration"},
              "C++": {"function_definition"},
              "Ruby": {"method", "singleton_method"},
-             "TypeScript": {"function", "function_declaration", "method_definition"},
-             "TSX": {"function", "function_declaration", "method_definition"},
+             "TypeScript": {"function_declaration", "method_definition"},
+             "TSX": {"function_declaration", "method_definition"},
              "PHP": {"function_definition", "method_declaration"},
              "C#": {"method_declaration", "indexer_declaration", "property_declaration",
                     "constructor_declaration"},
@@ -73,14 +75,34 @@ FUNCTIONS = {"JavaScript": {"function", "function_declaration", "method_definiti
              "Rust": {"function_item"}}
 
 
+def merge_types_for_all_languages(type_spec: Dict[str, Set[str]]) -> Set[str]:
+    """
+    Merge types for all languages presented in type_spec into one set.
+
+    :param type_spec: dict with programming languages as keys and set of tree sitter types as keys
+    :return: set of tree sitter types
+    """
+    return set(value for values in type_spec.values() for value in values)
+
+
+# Merged types for all languages for all specs defined above
+MERGED_IDENTIFIERS = merge_types_for_all_languages(IDENTIFIERS)
+
+MERGED_CLASSES = merge_types_for_all_languages(CLASSES)
+
+MERGED_FUNCTIONS = merge_types_for_all_languages(FUNCTIONS)
+
+
 @dataclass
 class TreeSitterExtractor(BaseEntityExtractor):
     """Entities extractor with tree-sitter backend"""
     types: Set[str]
 
-    def __post_init__(self):
+    @property
+    def parser(self) -> tree_sitter.Parser:
+        """Return parser for currently specified language for extraction"""
         parser_name = PARSERS[self.programming_language.value]
-        self.parser = get_parser(parser_name)
+        return get_parser(parser_name)
 
     def traverse_tree(self, code: str) -> Generator[tree_sitter.Node, None, None]:
         """
@@ -90,26 +112,7 @@ class TreeSitterExtractor(BaseEntityExtractor):
         :return: generator of tree_sitter.Node instances with given types
         """
         tree: tree_sitter.Tree = self.parser.parse(code.encode())
-        cursor: tree_sitter.TreeCursor = tree.walk()
-
-        has_next_child = True
-        has_next_sibling = True
-        has_parent_node = True
-
-        while has_next_child or has_next_sibling:
-            if cursor.node.type in self.types:
-                yield cursor.node
-
-            # Traverse down
-            has_next_child = cursor.goto_first_child()
-
-            # If leaf node is met try traverse right or find parent node where we can traverse right
-            if not has_next_child:
-                has_next_sibling = cursor.goto_next_sibling()
-
-                while not has_next_sibling and has_parent_node:
-                    has_parent_node = cursor.goto_parent()
-                    has_next_sibling = cursor.goto_next_sibling()
+        yield from traverse_down_with_cursor(tree.walk(), types=self.types)
 
     def parse_entities(self, code: str) -> Generator[BaseEntity, None, None]:
         """
@@ -123,15 +126,30 @@ class TreeSitterExtractor(BaseEntityExtractor):
             identifier = code_bytes[node.start_byte:node.end_byte].decode()
             yield BaseEntity(identifier, node.start_byte, *node.start_point, node.type)
 
-    def parse_traversable_entities(self, code: str) -> Generator[TraversableEntity, None, None]:
+    def parse_entities_with_children(self, code: str) -> Generator[TreeEntity, None, None]:
         """
-        Parse traversable entities from code with pygments extractor. Differs from parse_entities
-        with presence of node in each entity, which allows to make something with AST around the node.
+        Parse TreeEntity from code with tree_sitter extractor.
+        Differs from parse_entity in that structural information is extracted.
 
         :param code: source code string
-        :return: entities with self.types
+        :return: generator of TreeEntities
         """
         code_bytes = code.encode()
         for node in self.traverse_tree(code):
-            identifier = code_bytes[node.start_byte:node.end_byte].decode()
-            yield TraversableEntity(identifier, node.start_byte, *node.start_point, node.type, node)
+            yield TreeEntity.from_node(node, code_bytes)
+
+    def parse_entities_with_children_of_types(self, code: str, children_types: Set[str]) -> Generator[TreeEntity, None, None]:
+        """
+        Parse TreeEntity from code with tree_sitter extractor.
+        Differs from parse_entities_with_children in that only children with defined children_types are extracted. Also
+        structural information aren't preserved and children come flat.
+
+        :param code: source code string
+        :param children_types: type of children to extract
+        :return: generator of TreeEntities
+        """
+        code_bytes = code.encode()
+        for node in self.traverse_tree(code):
+            entity = TreeEntity.from_node_with_types(node, code_bytes, children_types)
+            if len(entity.children) > 0:
+                yield entity

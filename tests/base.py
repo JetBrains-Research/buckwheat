@@ -13,3 +13,7 @@ def get_directory_instance() -> LanguageClassifiedDirectory:
 
 def get_classified_test_files() -> List[LanguageClassifiedFile]:
     return transform_directory_to_files(get_directory_instance())
+
+
+def get_test_files_list() -> List[str]:
+    return list(map(str, tests_files_dir.glob("*")))
