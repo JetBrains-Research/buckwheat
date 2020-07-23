@@ -9,3 +9,6 @@
 
 # Sphinx docs
 /docs/_build/
+
+# Coverage file
+.coverage

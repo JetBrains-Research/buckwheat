@@ -18,10 +18,9 @@ from .language_recognition.utils import recognize_languages_dir
 from .parsing.utils import get_parser
 from .saver import OutputFormats
 from .subtokenizer import TokenParser
-from .utils import SUPPORTED_LANGUAGES, PARSING_MODES, GRANULARITIES, OUTPUT_FORMATS, \
-    IdentifiersTypes, ObjectTypes, FileData, IdentifierData, ObjectData, RepositoryError, \
-    assert_trailing_slash, clone_repository, get_full_path, get_latest_commit, read_file, \
-    to_batches, transform_files_list
+from .utils import assert_trailing_slash, clone_repository, FileData, get_full_path, get_latest_commit, GRANULARITIES, \
+    IdentifierData, IdentifiersTypes, ObjectData, ObjectTypes, OUTPUT_FORMATS, PARSING_MODES, read_file, \
+    RepositoryError, SUPPORTED_LANGUAGES, to_batches, transform_files_list
 
 # TODO: better naming
 # TODO: add AST functionality
