@@ -1,7 +1,7 @@
 import os
 import tempfile
 from dataclasses import dataclass
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from buckwheat import recognize_languages_dir
 from buckwheat.utils import clone_repository, ProgrammingLanguages
@@ -12,6 +12,16 @@ class LanguageClassifiedDirectory:
     """Directory with list of classified files"""
     path: str
     language_file_index: Dict[str, List[str]]
+
+    def get_language_of_file(self, file_path: str) -> Optional[str]:
+        for lang, files in self.language_file_index.items():
+            if file_path in files:
+                return lang
+
+
+@dataclass
+class LanguageClassifiedGitDirectory(LanguageClassifiedDirectory):
+    repository: str
 
 
 @dataclass
