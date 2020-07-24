@@ -12,3 +12,12 @@
 
 # Coverage file
 .coverage
+
+# Idea files
+.idea
+
+# Python cache files
+__pycache__
+
+# Mypy
+.mypy_cache
