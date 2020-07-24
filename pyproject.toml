@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "preprocess"
+name = "buckwheat"
 version = "0.1.0"
 description = ""
 authors = ["Vasilev Maxim <maxim.vasilev@jetbrains.com>"]
