@@ -8,7 +8,7 @@ from operator import itemgetter
 import os
 from typing import Dict, List, Union
 
-from .utils import IdentifiersTypes, ObjectTypes, FileData, IdentifierData
+from .utils import FileData, IdentifierData, IdentifiersTypes, ObjectTypes
 
 
 def merge_bags(files: List[FileData]) -> Counter:

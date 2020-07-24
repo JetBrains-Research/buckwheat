@@ -23,7 +23,7 @@ class BaseEntity:
 
         :return: Tokens from body
         """
-        return tokenizer.process_token(self.body)
+        return list(tokenizer.process_token(self.body))
 
 
 @dataclass

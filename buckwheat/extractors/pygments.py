@@ -1,14 +1,13 @@
 from dataclasses import dataclass
-from typing import Generator, Set, Iterable, Any
+from typing import Any, Generator, Iterable, Set
 
 import pygments
 from pygments.lexers.haskell import HaskellLexer
-from pygments.lexers.jvm import ScalaLexer, KotlinLexer
+from pygments.lexers.jvm import KotlinLexer, ScalaLexer
 from pygments.lexers.objective import SwiftLexer
 
-from buckwheat.extractors.entities import BaseEntity
 from buckwheat.extractors.base import BaseEntityExtractor
-
+from buckwheat.extractors.entities import BaseEntity
 
 IDENTIFIERS = {
     "Scala": {pygments.token.Name, pygments.token.Keyword.Type},

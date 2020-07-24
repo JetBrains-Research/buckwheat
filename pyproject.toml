@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "preprocess"
+name = "buckwheat"
 version = "0.1.0"
 description = ""
 authors = ["Vasilev Maxim <maxim.vasilev@jetbrains.com>"]
@@ -11,9 +11,19 @@ tree-sitter = "^0.1.1"
 PyStemmer = "^2.0.1"
 joblib = "^0.16.0"
 Cython = "^0.29.21"
+dask = {extras = ["bag"], version = "^2.21.0"}
 
 [tool.poetry.dev-dependencies]
 pytest = "^5.4.3"
+sphinx = "^3.1.2"
+sphinx-autoapi = "^1.4.0"
+sphinx-rtd-theme = "^0.5.0"
+flake8 = "^3.8.3"
+flake8-import-order = "^0.18.1"
+mypy = "^0.782"
+coverage = "^5.2"
+coverage-badge = "^1.0.1"
+pre-commit = "^2.6.0"
 
 [build-system]
 requires = ["poetry>=0.12"]

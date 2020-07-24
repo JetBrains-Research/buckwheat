@@ -15,6 +15,7 @@
 from enum import Enum
 import functools
 import re
+from typing import Generator
 
 import Stemmer
 
@@ -106,7 +107,7 @@ class TokenParser:
     def __call__(self, token):
         return self.process_token(token)
 
-    def process_token(self, token):
+    def process_token(self, token) -> Generator[str, None, None]:
         for word in self.split(token):
             yield self.stem(word)
 

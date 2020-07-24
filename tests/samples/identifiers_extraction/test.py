@@ -1,7 +1,5 @@
 import os
 
-from tree_sitter import Language, Parser
-
 PARSERS = {}
 
 

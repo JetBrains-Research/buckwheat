@@ -1,5 +1,5 @@
 [![JetBrains Research](https://jb.gg/badges/research.svg)](https://confluence.jetbrains.com/display/ALL/JetBrains+on+GitHub)
-![Linux & MacOS build](https://github.com/JetBrains-Research/identifiers-extractor/workflows/Linux%20&%20MacOS%20CI/badge.svg)
+![Coverage](https://buildserver.labs.intellij.net/repository/download/StaticAnalysis_PlagiarismDetector_Preprocess_Test/.lastSuccessful/coverage-badge.svg)
 
 # Buckwheat
 A multi-language tokenizer for extracting classes, functions, and identifiers from source code.
@@ -7,15 +7,15 @@ A multi-language tokenizer for extracting classes, functions, and identifiers fr
 The tool is already employed in [searching for similar repositories](https://github.com/JetBrains-Research/similar-repositories/) and [studying the dynamics of topics in code](https://github.com/areyde/topic-dynamics).
 
 ## How to use
-The tool currently works on Linux and MacOS, correct versions of files will be downloaded automatically. 
+The tool currently works on Linux and MacOS, correct versions of files will be downloaded automatically.
 
 1. Install the required dependencies:
-    
+
     ```shell script
     pip3 install cython
     pip3 install -r requirements.txt
     ```
-    
+
 2. Create an input file with a list of repositories. In the default mode, the list must contain links to GitHub, in the local mode (activated by passing the `--local` argument), the list must contain the paths to local directories.
 3. Run from the command line with `python3 -m buckwheat.run` and the following arguments:
     - `-i`: a path to the input file.

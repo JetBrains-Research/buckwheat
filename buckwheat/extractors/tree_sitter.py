@@ -1,12 +1,11 @@
 from dataclasses import dataclass
-from typing import Set, Generator
+from typing import Generator, Set
 
 import tree_sitter
 
-from buckwheat.extractors.entities import BaseEntity, TraversableEntity
 from buckwheat.extractors.base import BaseEntityExtractor
+from buckwheat.extractors.entities import BaseEntity, TraversableEntity
 from buckwheat.parsing.utils import get_parser
-
 
 PARSERS = {"JavaScript": "javascript",
            "Python": "python",

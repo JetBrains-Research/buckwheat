@@ -1,5 +1,23 @@
+# Internal tools ignores
 /buckwheat/parsing/build/*
 !buckwheat/parsing/build/.gitkeep
 /buckwheat/language_recognition/build/*
 !buckwheat/language_recognition/build/.gitkeep
+
+# Pytest
 .pytest_cache
+
+# Sphinx docs
+/docs/_build/
+
+# Coverage file
+.coverage
+
+# Idea files
+.idea
+
+# Python cache files
+__pycache__
+
+# Mypy
+.mypy_cache

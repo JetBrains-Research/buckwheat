@@ -5,17 +5,16 @@ from typing import Dict
 
 import pytest
 
+from buckwheat.extractors import pygments, PygmentsExtractor, tree_sitter, TreeSitterExtractor
 from buckwheat.utils import ProgrammingLanguages
-from buckwheat.extractors import pygments, tree_sitter
-from buckwheat.extractors import TreeSitterExtractor, PygmentsExtractor
 
 tests_files_dir = Path(__file__).parent / "samples" / "identifiers_extraction"
 
 
 @pytest.mark.parametrize("language,filename,actual_counts", [
     ["JavaScript", "test.js", {"height": 4, "width": 4, "rectangl": 2, "calc": 2, "area": 2, "prototyp": 1}],
-    ["Python", "test.py", {"tree": 6, "sitter": 6, "dir": 4, "get": 3, "path": 3, "parser": 2, "str": 2, "bin": 2,
-                           "loc": 2, "languag": 1, "abspath": 1, "dirnam": 1, "file": 1, "join": 1}],
+    ["Python", "test.py", {"tree": 5, "sitter": 5, "dir": 4, "get": 3, "path": 3, "parser": 1, "str": 2, "bin": 2,
+                           "loc": 2, "abspath": 1, "dirnam": 1, "file": 1, "join": 1}],
     ["Java", "test.java", {"stats": 7, "sub": 7, "dir": 4, "writer": 3, "file": 3, "dirs": 3, "now": 3, "statist": 3,
                            "all": 3, "collect": 2, "write": 2, "list": 2, "featur": 2, "total": 2, "holder": 2,
                            "and": 1, "print": 1, "string": 1, "except": 1, "ioexcept": 1, "length": 1, "directori": 1,

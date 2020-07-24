@@ -1,7 +1,7 @@
 import pytest
 
-from buckwheat.parsing.utils import main as init_tree_sitter
 from buckwheat.language_recognition.utils import main as init_enry
+from buckwheat.parsing.utils import main as init_tree_sitter
 
 
 @pytest.fixture(scope="session", autouse=True)

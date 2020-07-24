@@ -8,7 +8,7 @@ import sys
 from .language_recognition.utils import main as initialize_enry
 from .parsing.utils import main as initialize_parser
 from .tokenizer import tokenize_list_of_repositories
-from .utils import PARSING_MODES, GRANULARITIES, OUTPUT_FORMATS
+from .utils import GRANULARITIES, OUTPUT_FORMATS, PARSING_MODES
 
 
 def main(args: argparse.Namespace) -> None:
