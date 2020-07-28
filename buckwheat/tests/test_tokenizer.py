@@ -215,13 +215,13 @@ class TestParser(unittest.TestCase):
                 self.assertEqual(tokens, Counter(data.identifiers))
 
                 if data.comments:
-                    comments = get_comments_from_file(file)
+                    comments = get_comments_from_file(file, data.lang)
                     self.assertEqual(comments, data.comments)
 
                 if data.exceptions:
                     for function in data.exceptions:
                         with self.assertRaises(data.exceptions[function]):
-                            function(file)
+                            function(file, data.lang)
 
 
 if __name__ == "__main__":
