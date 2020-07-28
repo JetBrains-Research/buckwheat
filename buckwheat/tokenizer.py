@@ -570,13 +570,13 @@ def get_classes_from_file(file: str, lang: str, identifiers_verbose: bool = Fals
 
 
 # TODO: Fix extraction of Swift comments
-def get_comments_from_file(file: str) -> List[str]:
+def get_comments_from_file(file: str, lang: str) -> List[str]:
     """
     Given a file. Extract comments from this file.
     :param file: the path to file.
+    :param lang: programming language.
     :return: list of comments.
     """
-    lang = recognize_language_file(file)['language']
 
     if lang in TreeSitterParser.COMMENTS:
         return TreeSitterParser.get_comments_from_file(file, lang)
