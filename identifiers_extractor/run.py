@@ -16,7 +16,7 @@ def main(args: argparse.Namespace) -> None:
     initialize_parser()
     initialize_enry()
     tokenize_repositories(repositories_file=args.input, output_dir=args.output,
-                          batch_size=int(args.batches), local=args.local)
+                          batch_size=int(args.batches), local=args.local, results_per_file=args.files)
 
 
 if __name__ == "__main__":
@@ -31,5 +31,7 @@ if __name__ == "__main__":
     parser.add_argument("-l", "--local", action="store_true",
                         help="If passed, switches the tokenization into the local mode, where "
                              "the input list must contain paths to local directories.")
+    parser.add_argument("--files", action="store_true",
+                        help="If passed, the program will return result for each separate file.")
     args = parser.parse_args()
     main(args)

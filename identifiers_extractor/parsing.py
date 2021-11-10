@@ -1,6 +1,7 @@
 """
 Parsing-related functionality.
 """
+import collections
 from collections import Counter
 import json
 from operator import itemgetter
@@ -227,7 +228,7 @@ def transform_files_list(lang2files: Dict[str, str], directory: str) -> List[Tup
     return files
 
 
-def get_tokens(file: str, lang: str) -> Counter:
+def get_tokens(file: str, lang: str) -> (str, Counter):
     """
     Gather a Counter object of tokens in the file and their count.
     :param file: the path to the file.
@@ -236,11 +237,11 @@ def get_tokens(file: str, lang: str) -> Counter:
     """
     try:
         if SUPPORTED_LANGUAGES[lang] == "tree-sitter":
-            return TreeSitterParser.get_tokens(file, lang)
+            return file, TreeSitterParser.get_tokens(file, lang)
         else:
-            return PygmentsParser.get_tokens(file, lang)
+            return file, PygmentsParser.get_tokens(file, lang)
     except (UnicodeDecodeError, FileNotFoundError):
-        return Counter()
+        return file, Counter()
 
 
 def transform_tokens(tokens: Counter, token2number: dict) -> List[str]:
@@ -260,8 +261,20 @@ def transform_tokens(tokens: Counter, token2number: dict) -> List[str]:
     return formatted_tokens
 
 
+def repo_files_list(repo):
+    all_files = []
+    for root, dirs, files in os.walk(repo):
+        path = root[len(repo):]
+        if not (path.startswith("/.git/") or path == "/.git"):
+            if len(dirs) == 0 and len(files) == 0:
+                all_files.append(root)
+            for file in files:
+                all_files.append(root + '/' + file)
+    return all_files
+
+
 def tokenize_repositories(repositories_file: str, output_dir: str,
-                          batch_size: int, local: bool) -> None:
+                          batch_size: int, local: bool, results_per_file: bool) -> None:
     """
     Given the list of links to repositories, tokenize all the repositories in the list,
     writing them in batches to files, a single repository per line, vocabulary separately.
@@ -271,6 +284,7 @@ def tokenize_repositories(repositories_file: str, output_dir: str,
     :param batch_size: the number of repositories to be grouped into a single batch.
     :param local: True if tokenizing in local mode (the input file contains paths to directories),
                   False if tokenizing in default mode (the input file contains GitHub links)
+    :param results_per_file: If True, result is tokens for all files dn dirs.
     :return: None.
     """
     print("Tokenizing the repositories.")
@@ -278,7 +292,7 @@ def tokenize_repositories(repositories_file: str, output_dir: str,
     assert os.path.exists(repositories_file)
     with open(repositories_file) as fin:
         repositories_list = fin.read().splitlines()
-        repositories_batches = [repositories_list[x:x+batch_size]
+        repositories_batches = [repositories_list[x:x + batch_size]
                                 for x in range(0, len(repositories_list), batch_size)]
     # Creating the output directory
     if not os.path.exists(output_dir):
@@ -290,6 +304,9 @@ def tokenize_repositories(repositories_file: str, output_dir: str,
             print(f"Tokenizing batch {count_batch + 1} out of {len(repositories_batches)}.")
             rep2tokens = {}
             vocab = set()
+            file2tokens = {}
+            repo_root_path = ""
+            all_dirs = []
             # Iterating over repositories in the batch
             for repository in tqdm(batch):
                 tokens = Counter()
@@ -301,6 +318,8 @@ def tokenize_repositories(repositories_file: str, output_dir: str,
                             print("{repository} is not a valid link!"
                                   .format(repository=repository))
                             continue
+                        all_dirs = repo_files_list(td)
+                        repo_root_path = td
                         lang2files = recognize_languages(td)
                         files = transform_files_list(lang2files, td)
                         chunk_results = pool([delayed(get_tokens)(file[0], file[1])
@@ -311,25 +330,41 @@ def tokenize_repositories(repositories_file: str, output_dir: str,
                     except AssertionError:
                         print("{repository} doesn't exist!".format(repository=repository))
                         continue
+                    all_dirs = repo_files_list(repository)
+                    repo_root_path = repository
                     lang2files = recognize_languages(repository)
                     files = transform_files_list(lang2files, repository)
-                    chunk_results = pool([delayed(get_tokens)(file[0], file[1]) for file in files])
-                for chunk_result in chunk_results:
+                    chunk_results = pool([delayed(get_tokens)(file[0], file[1])
+                                          for file in files])
+                for file, chunk_result in chunk_results:
                     tokens += chunk_result  # Tokens are unique for every repository
+                    file2tokens[file] = chunk_result
                     vocab.update(chunk_result.keys())  # Vocab is compiled for the entire batch
                 if len(tokens) != 0:  # Skipping the possible empty repositories
                     rep2tokens[repository] = tokens
             token2number = {}
             for number, token in enumerate(vocab):
                 token2number[token] = number
+            if results_per_file:
+                for file in all_dirs:
+                    if not file2tokens.keys().__contains__(file):
+                        file2tokens[file] = Counter()
+            file2tokens = collections.OrderedDict(sorted(file2tokens.items()))
+
             # Writing the tokens, one repository per line
             with open(os.path.abspath(os.path.join(output_dir,
                                                    f"docword{count_batch}.txt")), "w+") as fout:
                 for repository in rep2tokens.keys():
-                    fout.write("{repository};{tokens}\n"
-                               .format(repository=repository,
-                                       tokens=",".join(transform_tokens(rep2tokens[repository],
-                                                                        token2number))))
+                    if not results_per_file:
+                        fout.write("{repository};{tokens}\n"
+                                   .format(repository=repository,
+                                           tokens=",".join(transform_tokens(rep2tokens[repository],
+                                                                            token2number))))
+                    else:
+                        for file in file2tokens.keys():
+                            fout.write("{file};{tokens}\n"
+                                       .format(file=file[len(repo_root_path):],
+                                               tokens=",".join(transform_tokens(file2tokens[file], token2number))))
             # Writing the vocabulary, mapping numbers to tokens
             with open(os.path.abspath(os.path.join(output_dir,
                                                    f"vocab{count_batch}.txt")), "w+") as fout:
