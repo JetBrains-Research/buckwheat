@@ -361,6 +361,7 @@ def tokenize_repositories(repositories_file: str, output_dir: str,
                                            tokens=",".join(transform_tokens(rep2tokens[repository],
                                                                             token2number))))
                     else:
+                        fout.write(repository + "\n")
                         for file in file2tokens.keys():
                             fout.write("{file};{tokens}\n"
                                        .format(file=file[len(repo_root_path):],
