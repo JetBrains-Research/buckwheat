@@ -267,9 +267,9 @@ def repo_files_list(repo):
         path = root[len(repo):]
         if not (path.startswith("/.git/") or path == "/.git"):
             if len(dirs) == 0 and len(files) == 0:
-                all_files.append(root)
+                all_files.append(os.path.abspath(root))
             for file in files:
-                all_files.append(root + '/' + file)
+                all_files.append(os.path.abspath(root) + '/' + file)
     return all_files
 
 
@@ -306,7 +306,7 @@ def tokenize_repositories(repositories_file: str, output_dir: str,
             vocab = set()
             file2tokens = {}
             repo_root_path = ""
-            all_dirs = []
+            all_files = []
             # Iterating over repositories in the batch
             for repository in tqdm(batch):
                 tokens = Counter()
@@ -318,7 +318,7 @@ def tokenize_repositories(repositories_file: str, output_dir: str,
                             print("{repository} is not a valid link!"
                                   .format(repository=repository))
                             continue
-                        all_dirs = repo_files_list(td)
+                        all_files = repo_files_list(td)
                         repo_root_path = td
                         lang2files = recognize_languages(td)
                         files = transform_files_list(lang2files, td)
@@ -330,7 +330,7 @@ def tokenize_repositories(repositories_file: str, output_dir: str,
                     except AssertionError:
                         print("{repository} doesn't exist!".format(repository=repository))
                         continue
-                    all_dirs = repo_files_list(repository)
+                    all_files = repo_files_list(repository)
                     repo_root_path = repository
                     lang2files = recognize_languages(repository)
                     files = transform_files_list(lang2files, repository)
@@ -346,7 +346,7 @@ def tokenize_repositories(repositories_file: str, output_dir: str,
             for number, token in enumerate(vocab):
                 token2number[token] = number
             if results_per_file:
-                for file in all_dirs:
+                for file in all_files:
                     if not file2tokens.keys().__contains__(file):
                         file2tokens[file] = Counter()
             file2tokens = collections.OrderedDict(sorted(file2tokens.items()))
@@ -361,10 +361,10 @@ def tokenize_repositories(repositories_file: str, output_dir: str,
                                            tokens=",".join(transform_tokens(rep2tokens[repository],
                                                                             token2number))))
                     else:
-                        fout.write(repository + "\n")
+                        fout.write(repository[repository.rfind('/') + 1:] + "\n")
                         for file in file2tokens.keys():
                             fout.write("{file};{tokens}\n"
-                                       .format(file=file[len(repo_root_path):],
+                                       .format(file=file[len(os.path.abspath(repo_root_path)):],
                                                tokens=",".join(transform_tokens(file2tokens[file], token2number))))
             # Writing the vocabulary, mapping numbers to tokens
             with open(os.path.abspath(os.path.join(output_dir,
