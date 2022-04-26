@@ -3,6 +3,7 @@ Tree-sitter related functionality.
 """
 import logging
 import os
+import platform
 import urllib.request
 
 from tree_sitter import Language, Parser
@@ -15,7 +16,10 @@ DOWNLOAD_URLS = {
         "tree-sitter-linux.tar.gz",
     "Darwin":
         "https://github.com/JetBrains-Research/identifiers-extractor/releases/latest/download/"
-        "tree-sitter-darwin.tar.gz"
+        "tree-sitter-darwin.tar.gz",
+    "m1":
+        "https://github.com/JetBrains-Research/identifiers-extractor/releases/latest/download/"
+        "tree-sitter-m1.tar.gz"
 }
 
 FILENAMES = {
@@ -48,7 +52,11 @@ def main() -> None:
     :return: None.
     """
     system = identify_system()
-    url = DOWNLOAD_URLS[system]
+    processor = platform.processor()
+    if system == "Darwin" and processor == "arm":
+        url = DOWNLOAD_URLS["m1"]
+    else:
+        url = DOWNLOAD_URLS[system]
     filename = FILENAMES[system]
     if not os.path.exists(os.path.join(get_tree_sitter_dir(), filename)):
         try:
